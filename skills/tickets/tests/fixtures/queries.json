@@ -1,0 +1,1276 @@
+{
+  "parse": [
+    {
+      "name": "no free text is my open tickets everywhere",
+      "request": "",
+      "expect": {
+        "state": "open",
+        "sprints": [],
+        "priorities": [],
+        "repos": [],
+        "labels": [],
+        "blockedOnly": false,
+        "epics": "include",
+        "assignee": null,
+        "unparsed": []
+      }
+    },
+    {
+      "name": "of s4",
+      "request": "of s4",
+      "expect": {
+        "state": "open",
+        "sprints": [
+          "sprint-4"
+        ],
+        "priorities": [],
+        "repos": [],
+        "labels": [],
+        "blockedOnly": false,
+        "epics": "include",
+        "assignee": null,
+        "unparsed": []
+      }
+    },
+    {
+      "name": "only closed tickets of s4",
+      "request": "only closed tickets of s4",
+      "expect": {
+        "state": "closed",
+        "sprints": [
+          "sprint-4"
+        ],
+        "priorities": [],
+        "repos": [],
+        "labels": [],
+        "blockedOnly": false,
+        "epics": "include",
+        "assignee": null,
+        "unparsed": []
+      }
+    },
+    {
+      "name": "spelled-out sprint and a repository, case preserved",
+      "request": "sprint 4 in OWNER/REPOSITORY",
+      "expect": {
+        "state": "open",
+        "sprints": [
+          "sprint-4"
+        ],
+        "priorities": [],
+        "repos": [
+          "OWNER/REPOSITORY"
+        ],
+        "labels": [],
+        "blockedOnly": false,
+        "epics": "include",
+        "assignee": null,
+        "unparsed": []
+      }
+    },
+    {
+      "name": "several priorities are an or",
+      "request": "p0 p1",
+      "expect": {
+        "state": "open",
+        "sprints": [],
+        "priorities": [
+          "P0-urgent",
+          "P1-high"
+        ],
+        "repos": [],
+        "labels": [],
+        "blockedOnly": false,
+        "epics": "include",
+        "assignee": null,
+        "unparsed": []
+      }
+    },
+    {
+      "name": "priority words map to labels",
+      "request": "urgent high",
+      "expect": {
+        "state": "open",
+        "sprints": [],
+        "priorities": [
+          "P0-urgent",
+          "P1-high"
+        ],
+        "repos": [],
+        "labels": [],
+        "blockedOnly": false,
+        "epics": "include",
+        "assignee": null,
+        "unparsed": []
+      }
+    },
+    {
+      "name": "no epics leaves no orphan word behind",
+      "request": "s4 no epics",
+      "expect": {
+        "state": "open",
+        "sprints": [
+          "sprint-4"
+        ],
+        "priorities": [],
+        "repos": [],
+        "labels": [],
+        "blockedOnly": false,
+        "epics": "exclude",
+        "assignee": null,
+        "unparsed": []
+      }
+    },
+    {
+      "name": "epics only",
+      "request": "epics of sprint 4",
+      "expect": {
+        "state": "open",
+        "sprints": [
+          "sprint-4"
+        ],
+        "priorities": [],
+        "repos": [],
+        "labels": [],
+        "blockedOnly": false,
+        "epics": "only",
+        "assignee": null,
+        "unparsed": []
+      }
+    },
+    {
+      "name": "blocked is a filter, not a label",
+      "request": "blocked s4 p1",
+      "expect": {
+        "state": "open",
+        "sprints": [
+          "sprint-4"
+        ],
+        "priorities": [
+          "P1-high"
+        ],
+        "repos": [],
+        "labels": [],
+        "blockedOnly": true,
+        "epics": "include",
+        "assignee": null,
+        "unparsed": []
+      }
+    },
+    {
+      "name": "another person, both states, an explicit label",
+      "request": "all @Some_Login label:security",
+      "expect": {
+        "state": "all",
+        "sprints": [],
+        "priorities": [],
+        "repos": [],
+        "labels": [
+          "security"
+        ],
+        "blockedOnly": false,
+        "epics": "include",
+        "assignee": "Some_Login",
+        "unparsed": []
+      }
+    },
+    {
+      "name": "an unknown word is searched for and reported, never dropped",
+      "request": "s4 seeding",
+      "expect": {
+        "state": "open",
+        "sprints": [
+          "sprint-4"
+        ],
+        "priorities": [],
+        "repos": [],
+        "labels": [],
+        "blockedOnly": false,
+        "epics": "include",
+        "assignee": null,
+        "unparsed": [
+          "seeding"
+        ]
+      }
+    }
+  ],
+  "query": [
+    {
+      "request": "",
+      "login": "Some_Login",
+      "expect": "is:issue assignee:Some_Login is:open"
+    },
+    {
+      "request": "only closed tickets of s4",
+      "login": "Some_Login",
+      "expect": "is:issue assignee:Some_Login is:closed label:sprint-4"
+    },
+    {
+      "request": "p0 p1 in OWNER/REPOSITORY",
+      "login": "Some_Login",
+      "expect": "is:issue assignee:Some_Login is:open label:P0-urgent,P1-high repo:OWNER/REPOSITORY"
+    },
+    {
+      "request": "all label:security seeding",
+      "login": "Some_Login",
+      "expect": "is:issue assignee:Some_Login label:security seeding"
+    }
+  ],
+  "shape": {
+    "nodes": [
+      {
+        "number": 101,
+        "title": "A closed ticket",
+        "url": "https://github.com/OWNER/REPOSITORY/issues/101",
+        "state": "CLOSED",
+        "stateReason": "COMPLETED",
+        "updatedAt": "2026-08-10T00:00:00Z",
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "labels": {
+          "nodes": [
+            {
+              "name": "P1-high"
+            },
+            {
+              "name": "sprint-4"
+            }
+          ]
+        },
+        "subIssuesSummary": {
+          "total": 0,
+          "completed": 0
+        },
+        "parent": null,
+        "blockedBy": {
+          "nodes": []
+        },
+        "closedByPullRequestsReferences": {
+          "nodes": [
+            {
+              "number": 201,
+              "title": "feat: a thing",
+              "url": "https://github.com/OWNER/REPOSITORY/pull/201",
+              "state": "MERGED",
+              "isDraft": false,
+              "merged": true,
+              "reviewDecision": null,
+              "repository": {
+                "nameWithOwner": "OWNER/REPOSITORY"
+              },
+              "commits": {
+                "nodes": [
+                  {
+                    "commit": {
+                      "statusCheckRollup": {
+                        "state": "SUCCESS"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "timelineItems": {
+          "nodes": []
+        }
+      },
+      {
+        "number": 102,
+        "title": "A blocked ticket",
+        "url": "https://github.com/OWNER/REPOSITORY/issues/102",
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-08-14T00:00:00Z",
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "labels": {
+          "nodes": [
+            {
+              "name": "P0-urgent"
+            },
+            {
+              "name": "sprint-4"
+            }
+          ]
+        },
+        "subIssuesSummary": {
+          "total": 0,
+          "completed": 0
+        },
+        "parent": null,
+        "blockedBy": {
+          "nodes": [
+            {
+              "number": 99,
+              "url": "https://github.com/OWNER/REPOSITORY/issues/99",
+              "state": "OPEN",
+              "title": "The blocker",
+              "repository": {
+                "nameWithOwner": "OWNER/REPOSITORY"
+              }
+            },
+            {
+              "number": 98,
+              "url": "https://github.com/OWNER/REPOSITORY/issues/98",
+              "state": "CLOSED",
+              "title": "A settled blocker",
+              "repository": {
+                "nameWithOwner": "OWNER/REPOSITORY"
+              }
+            }
+          ]
+        },
+        "closedByPullRequestsReferences": {
+          "nodes": []
+        },
+        "timelineItems": {
+          "nodes": [
+            {
+              "source": {
+                "number": 202,
+                "title": "feat(#102): the branch",
+                "url": "https://github.com/OWNER/REPOSITORY/pull/202",
+                "state": "OPEN",
+                "isDraft": true,
+                "merged": false,
+                "reviewDecision": null,
+                "repository": {
+                  "nameWithOwner": "OWNER/REPOSITORY"
+                },
+                "commits": {
+                  "nodes": [
+                    {
+                      "commit": {
+                        "statusCheckRollup": {
+                          "state": "SUCCESS"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "number": 103,
+        "title": "A parent ticket",
+        "url": "https://github.com/OWNER/REPOSITORY/issues/103",
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-08-11T00:00:00Z",
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "labels": {
+          "nodes": [
+            {
+              "name": "P2-medium"
+            }
+          ]
+        },
+        "subIssuesSummary": {
+          "total": 3,
+          "completed": 1
+        },
+        "parent": null,
+        "blockedBy": {
+          "nodes": []
+        },
+        "closedByPullRequestsReferences": {
+          "nodes": []
+        },
+        "timelineItems": {
+          "nodes": []
+        }
+      },
+      {
+        "number": 104,
+        "title": "A ticket whose review asked for changes",
+        "url": "https://github.com/OWNER/REPOSITORY/issues/104",
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-08-12T00:00:00Z",
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "labels": {
+          "nodes": [
+            {
+              "name": "P2-medium"
+            }
+          ]
+        },
+        "subIssuesSummary": {
+          "total": 0,
+          "completed": 0
+        },
+        "parent": null,
+        "blockedBy": {
+          "nodes": []
+        },
+        "closedByPullRequestsReferences": {
+          "nodes": []
+        },
+        "timelineItems": {
+          "nodes": [
+            {
+              "source": {
+                "number": 204,
+                "title": "feat: something else entirely",
+                "url": "https://github.com/OWNER/REPOSITORY/pull/204",
+                "state": "OPEN",
+                "isDraft": false,
+                "merged": false,
+                "reviewDecision": "CHANGES_REQUESTED",
+                "repository": {
+                  "nameWithOwner": "OWNER/REPOSITORY"
+                },
+                "commits": {
+                  "nodes": [
+                    {
+                      "commit": {
+                        "statusCheckRollup": {
+                          "state": "SUCCESS"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "number": 105,
+        "title": "A ticket a foreign pull request merely mentioned",
+        "url": "https://github.com/OWNER/REPOSITORY/issues/105",
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-08-09T00:00:00Z",
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "labels": {
+          "nodes": [
+            {
+              "name": "P2-medium"
+            }
+          ]
+        },
+        "subIssuesSummary": {
+          "total": 0,
+          "completed": 0
+        },
+        "parent": null,
+        "blockedBy": {
+          "nodes": []
+        },
+        "closedByPullRequestsReferences": {
+          "nodes": []
+        },
+        "timelineItems": {
+          "nodes": [
+            {
+              "source": {
+                "number": 300,
+                "title": "chore: unrelated",
+                "url": "https://github.com/OWNER/OTHER/pull/300",
+                "state": "MERGED",
+                "isDraft": false,
+                "merged": true,
+                "reviewDecision": null,
+                "repository": {
+                  "nameWithOwner": "OWNER/OTHER"
+                },
+                "commits": {
+                  "nodes": [
+                    {
+                      "commit": {
+                        "statusCheckRollup": {
+                          "state": "SUCCESS"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "number": 106,
+        "title": "A ticket whose checks are red",
+        "url": "https://github.com/OWNER/REPOSITORY/issues/106",
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-08-13T00:00:00Z",
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "labels": {
+          "nodes": [
+            {
+              "name": "P2-medium"
+            }
+          ]
+        },
+        "subIssuesSummary": {
+          "total": 0,
+          "completed": 0
+        },
+        "parent": null,
+        "blockedBy": {
+          "nodes": []
+        },
+        "closedByPullRequestsReferences": {
+          "nodes": [
+            {
+              "number": 206,
+              "title": "feat: red",
+              "url": "https://github.com/OWNER/REPOSITORY/pull/206",
+              "state": "OPEN",
+              "isDraft": false,
+              "merged": false,
+              "reviewDecision": null,
+              "repository": {
+                "nameWithOwner": "OWNER/REPOSITORY"
+              },
+              "commits": {
+                "nodes": [
+                  {
+                    "commit": {
+                      "statusCheckRollup": {
+                        "state": "FAILURE"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "timelineItems": {
+          "nodes": []
+        }
+      },
+      {
+        "number": 107,
+        "title": "A ticket whose pull request merged without closing it",
+        "url": "https://github.com/OWNER/REPOSITORY/issues/107",
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-08-08T00:00:00Z",
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "labels": {
+          "nodes": [
+            {
+              "name": "P2-medium"
+            }
+          ]
+        },
+        "subIssuesSummary": {
+          "total": 0,
+          "completed": 0
+        },
+        "parent": null,
+        "blockedBy": {
+          "nodes": []
+        },
+        "closedByPullRequestsReferences": {
+          "nodes": [
+            {
+              "number": 207,
+              "title": "feat: shipped",
+              "url": "https://github.com/OWNER/REPOSITORY/pull/207",
+              "state": "MERGED",
+              "isDraft": false,
+              "merged": true,
+              "reviewDecision": null,
+              "repository": {
+                "nameWithOwner": "OWNER/REPOSITORY"
+              },
+              "commits": {
+                "nodes": [
+                  {
+                    "commit": {
+                      "statusCheckRollup": {
+                        "state": "SUCCESS"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "timelineItems": {
+          "nodes": []
+        }
+      },
+      {
+        "number": 108,
+        "title": "An approved ticket with no priority label",
+        "url": "https://github.com/OWNER/REPOSITORY/issues/108",
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-08-07T00:00:00Z",
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "labels": {
+          "nodes": [
+            {
+              "name": "sprint-4"
+            }
+          ]
+        },
+        "subIssuesSummary": {
+          "total": 0,
+          "completed": 0
+        },
+        "parent": null,
+        "blockedBy": {
+          "nodes": []
+        },
+        "closedByPullRequestsReferences": {
+          "nodes": [
+            {
+              "number": 208,
+              "title": "feat: approved",
+              "url": "https://github.com/OWNER/REPOSITORY/pull/208",
+              "state": "OPEN",
+              "isDraft": false,
+              "merged": false,
+              "reviewDecision": "APPROVED",
+              "repository": {
+                "nameWithOwner": "OWNER/REPOSITORY"
+              },
+              "commits": {
+                "nodes": [
+                  {
+                    "commit": {
+                      "statusCheckRollup": {
+                        "state": "SUCCESS"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "timelineItems": {
+          "nodes": []
+        }
+      },
+      {
+        "number": 109,
+        "title": "S4: joined only by its branch",
+        "url": "https://github.com/OWNER/REPOSITORY/issues/109",
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-08-06T00:00:00Z",
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "labels": {
+          "nodes": [
+            {
+              "name": "P3-low"
+            }
+          ]
+        },
+        "subIssuesSummary": {
+          "total": 0,
+          "completed": 0
+        },
+        "parent": null,
+        "blockedBy": {
+          "nodes": []
+        },
+        "closedByPullRequestsReferences": {
+          "nodes": []
+        },
+        "timelineItems": {
+          "nodes": [
+            {
+              "source": {
+                "number": 209,
+                "title": "feat: no number anywhere in this title",
+                "url": "https://github.com/OWNER/REPOSITORY/pull/209",
+                "state": "OPEN",
+                "isDraft": false,
+                "merged": false,
+                "reviewDecision": null,
+                "headRefName": "feat/109-joined-by-branch",
+                "repository": {
+                  "nameWithOwner": "OWNER/REPOSITORY"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "number": 34,
+        "title": "S4: a number that only looks like this ticket",
+        "url": "https://github.com/OWNER/REPOSITORY/issues/34",
+        "state": "OPEN",
+        "stateReason": null,
+        "updatedAt": "2026-08-05T00:00:00Z",
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "labels": {
+          "nodes": [
+            {
+              "name": "P3-low"
+            }
+          ]
+        },
+        "subIssuesSummary": {
+          "total": 0,
+          "completed": 0
+        },
+        "parent": null,
+        "blockedBy": {
+          "nodes": []
+        },
+        "closedByPullRequestsReferences": {
+          "nodes": []
+        },
+        "timelineItems": {
+          "nodes": [
+            {
+              "source": {
+                "number": 210,
+                "title": "chore: nothing to see",
+                "url": "https://github.com/OWNER/REPOSITORY/pull/210",
+                "state": "OPEN",
+                "isDraft": false,
+                "merged": false,
+                "reviewDecision": null,
+                "headRefName": "feat/1234-a-different-ticket",
+                "repository": {
+                  "nameWithOwner": "OWNER/REPOSITORY"
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "expectOrder": [
+      102,
+      101,
+      107,
+      106,
+      104,
+      105,
+      103,
+      109,
+      34,
+      108
+    ],
+    "expectRows": {
+      "101": {
+        "status": "Closed",
+        "priority": "P1-high",
+        "sprint": "sprint-4",
+        "isEpic": false,
+        "prCell": "#201 merged",
+        "link": "closing",
+        "statusHref": "https://github.com/OWNER/REPOSITORY/pull/201"
+      },
+      "102": {
+        "status": "Blocked",
+        "priority": "P0-urgent",
+        "sprint": "sprint-4",
+        "isEpic": false,
+        "prCell": "#202 draft",
+        "link": "title",
+        "statusHref": "https://github.com/OWNER/REPOSITORY/issues/99",
+        "blockedBy": [
+          99
+        ],
+        "blockedByClosed": 1
+      },
+      "103": {
+        "status": "Epic 1/3 done",
+        "priority": "P2-medium",
+        "isEpic": true,
+        "prCell": "—",
+        "link": null,
+        "statusHref": "https://github.com/OWNER/REPOSITORY/issues/103"
+      },
+      "104": {
+        "status": "Not started",
+        "priority": "P2-medium",
+        "isEpic": false,
+        "prCell": "—",
+        "link": null,
+        "statusHref": "https://github.com/OWNER/REPOSITORY/issues/104"
+      },
+      "105": {
+        "status": "Not started",
+        "priority": "P2-medium",
+        "isEpic": false,
+        "prCell": "—",
+        "link": null,
+        "statusHref": "https://github.com/OWNER/REPOSITORY/issues/105"
+      },
+      "106": {
+        "status": "In review",
+        "priority": "P2-medium",
+        "isEpic": false,
+        "prCell": "#206",
+        "link": "closing",
+        "statusHref": "https://github.com/OWNER/REPOSITORY/pull/206"
+      },
+      "107": {
+        "status": "PR merged — ticket open",
+        "priority": "P2-medium",
+        "isEpic": false,
+        "prCell": "#207 merged",
+        "link": "closing",
+        "statusHref": "https://github.com/OWNER/REPOSITORY/pull/207"
+      },
+      "108": {
+        "status": "Approved",
+        "priority": null,
+        "sprint": "sprint-4",
+        "isEpic": false,
+        "prCell": "#208",
+        "link": "closing",
+        "statusHref": "https://github.com/OWNER/REPOSITORY/pull/208"
+      },
+      "109": {
+        "status": "In review",
+        "priority": "P3-low",
+        "isEpic": false,
+        "prCell": "#209",
+        "link": "branch",
+        "statusHref": "https://github.com/OWNER/REPOSITORY/pull/209"
+      },
+      "34": {
+        "status": "Not started",
+        "priority": "P3-low",
+        "isEpic": false,
+        "prCell": "—",
+        "link": null,
+        "statusHref": "https://github.com/OWNER/REPOSITORY/issues/34"
+      }
+    }
+  },
+  "shapePrs": {
+    "nodes": [
+      {
+        "number": 501,
+        "title": "feat: approved and green",
+        "url": "https://github.com/OWNER/REPOSITORY/pull/501",
+        "state": "OPEN",
+        "isDraft": false,
+        "merged": false,
+        "updatedAt": "2026-08-19T10:00:00Z",
+        "headRefName": "feat/601-approved",
+        "mergeable": "MERGEABLE",
+        "mergeStateStatus": "CLEAN",
+        "reviewDecision": "APPROVED",
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "closingIssuesReferences": {
+          "nodes": [
+            {
+              "number": 601,
+              "url": "https://github.com/OWNER/REPOSITORY/issues/601",
+              "title": "the ticket",
+              "state": "OPEN",
+              "repository": {
+                "nameWithOwner": "OWNER/REPOSITORY"
+              }
+            }
+          ]
+        },
+        "reviewThreads": {
+          "nodes": [
+            {
+              "isResolved": true,
+              "isOutdated": false
+            }
+          ]
+        },
+        "commits": {
+          "nodes": [
+            {
+              "commit": {
+                "statusCheckRollup": {
+                  "state": "SUCCESS",
+                  "contexts": {
+                    "nodes": [
+                      {
+                        "name": "build",
+                        "conclusion": "SUCCESS",
+                        "status": "COMPLETED"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "number": 502,
+        "title": "feat: one real failure among the noise",
+        "url": "https://github.com/OWNER/REPOSITORY/pull/502",
+        "state": "OPEN",
+        "isDraft": false,
+        "merged": false,
+        "updatedAt": "2026-08-19T09:00:00Z",
+        "headRefName": "feat/602-comparator",
+        "mergeable": "MERGEABLE",
+        "mergeStateStatus": "BLOCKED",
+        "reviewDecision": null,
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "closingIssuesReferences": {
+          "nodes": []
+        },
+        "reviewThreads": {
+          "nodes": [
+            {
+              "isResolved": false,
+              "isOutdated": false
+            },
+            {
+              "isResolved": false,
+              "isOutdated": true
+            },
+            {
+              "isResolved": false,
+              "isOutdated": false
+            },
+            {
+              "isResolved": true,
+              "isOutdated": false
+            }
+          ]
+        },
+        "commits": {
+          "nodes": [
+            {
+              "commit": {
+                "statusCheckRollup": {
+                  "state": "FAILURE",
+                  "contexts": {
+                    "nodes": [
+                      {
+                        "name": "plan",
+                        "conclusion": "FAILURE",
+                        "status": "COMPLETED"
+                      },
+                      {
+                        "name": "plan",
+                        "conclusion": "SUCCESS",
+                        "status": "COMPLETED"
+                      },
+                      {
+                        "name": "auto-merge",
+                        "conclusion": "SKIPPED",
+                        "status": "COMPLETED"
+                      },
+                      {
+                        "name": "deploy",
+                        "conclusion": "CANCELLED",
+                        "status": "COMPLETED"
+                      },
+                      {
+                        "name": "Validate config",
+                        "conclusion": null,
+                        "status": "IN_PROGRESS"
+                      },
+                      {
+                        "context": "legacy/status",
+                        "state": "SUCCESS"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "number": 503,
+        "title": "feat: still a draft",
+        "url": "https://github.com/OWNER/REPOSITORY/pull/503",
+        "state": "OPEN",
+        "isDraft": true,
+        "merged": false,
+        "updatedAt": "2026-08-19T08:00:00Z",
+        "headRefName": "feat/603-thing",
+        "mergeable": "MERGEABLE",
+        "mergeStateStatus": "DRAFT",
+        "reviewDecision": null,
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "closingIssuesReferences": {
+          "nodes": []
+        },
+        "reviewThreads": {
+          "nodes": []
+        },
+        "commits": {
+          "nodes": [
+            {
+              "commit": {
+                "statusCheckRollup": {
+                  "state": "SUCCESS",
+                  "contexts": {
+                    "nodes": [
+                      {
+                        "name": "build",
+                        "conclusion": "SUCCESS",
+                        "status": "COMPLETED"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "number": 504,
+        "title": "feat: conflicted and reviewed",
+        "url": "https://github.com/OWNER/REPOSITORY/pull/504",
+        "state": "OPEN",
+        "isDraft": false,
+        "merged": false,
+        "updatedAt": "2026-08-19T07:00:00Z",
+        "headRefName": "feat/604-conflict",
+        "mergeable": "CONFLICTING",
+        "mergeStateStatus": "DIRTY",
+        "reviewDecision": "CHANGES_REQUESTED",
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "closingIssuesReferences": {
+          "nodes": []
+        },
+        "reviewThreads": {
+          "nodes": []
+        },
+        "commits": {
+          "nodes": [
+            {
+              "commit": {
+                "statusCheckRollup": null
+              }
+            }
+          ]
+        }
+      },
+      {
+        "number": 505,
+        "title": "feat: green and unreviewed",
+        "url": "https://github.com/OWNER/REPOSITORY/pull/505",
+        "state": "OPEN",
+        "isDraft": false,
+        "merged": false,
+        "updatedAt": "2026-08-19T06:00:00Z",
+        "headRefName": "feat/605-waiting",
+        "mergeable": "MERGEABLE",
+        "mergeStateStatus": "BLOCKED",
+        "reviewDecision": null,
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "closingIssuesReferences": {
+          "nodes": []
+        },
+        "reviewThreads": {
+          "nodes": []
+        },
+        "commits": {
+          "nodes": [
+            {
+              "commit": {
+                "statusCheckRollup": {
+                  "state": "SUCCESS",
+                  "contexts": {
+                    "nodes": [
+                      {
+                        "name": "build",
+                        "conclusion": "SUCCESS",
+                        "status": "COMPLETED"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "number": 506,
+        "title": "feat: checks still running",
+        "url": "https://github.com/OWNER/REPOSITORY/pull/506",
+        "state": "OPEN",
+        "isDraft": false,
+        "merged": false,
+        "updatedAt": "2026-08-19T05:00:00Z",
+        "headRefName": "feat/606-running",
+        "mergeable": "MERGEABLE",
+        "mergeStateStatus": "BLOCKED",
+        "reviewDecision": null,
+        "repository": {
+          "nameWithOwner": "OWNER/REPOSITORY"
+        },
+        "closingIssuesReferences": {
+          "nodes": []
+        },
+        "reviewThreads": {
+          "nodes": []
+        },
+        "commits": {
+          "nodes": [
+            {
+              "commit": {
+                "statusCheckRollup": {
+                  "state": "PENDING",
+                  "contexts": {
+                    "nodes": [
+                      {
+                        "name": "e2e",
+                        "conclusion": null,
+                        "status": "QUEUED"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "expectOrder": [
+      501,
+      502,
+      503,
+      504,
+      505,
+      506
+    ],
+    "expectRows": {
+      "501": {
+        "owner": "merge",
+        "nextMove": "Merge",
+        "failing": [],
+        "running": [],
+        "unresolvedThreads": 0,
+        "claims": [
+          {
+            "number": 601,
+            "via": "closing"
+          }
+        ],
+        "detail": "approved"
+      },
+      "502": {
+        "owner": "you",
+        "nextMove": "Fix plan",
+        "failing": [
+          "plan"
+        ],
+        "running": [
+          "Validate config"
+        ],
+        "unresolvedThreads": 3,
+        "claims": [
+          {
+            "number": 602,
+            "via": "branch"
+          }
+        ],
+        "detail": "1 check failing, 1 running, 3 unresolved threads, no review yet"
+      },
+      "503": {
+        "owner": "you",
+        "nextMove": "Finish and mark ready for review",
+        "failing": [],
+        "running": [],
+        "unresolvedThreads": 0,
+        "claims": [
+          {
+            "number": 603,
+            "via": "branch"
+          }
+        ],
+        "detail": "no review yet, draft"
+      },
+      "504": {
+        "owner": "you",
+        "nextMove": "Rebase — conflicts with the base branch",
+        "failing": [],
+        "running": [],
+        "unresolvedThreads": 0,
+        "claims": [
+          {
+            "number": 604,
+            "via": "branch"
+          }
+        ],
+        "detail": "changes requested, conflicts"
+      },
+      "505": {
+        "owner": "waiting",
+        "nextMove": "Waiting on review",
+        "failing": [],
+        "running": [],
+        "unresolvedThreads": 0,
+        "claims": [
+          {
+            "number": 605,
+            "via": "branch"
+          }
+        ],
+        "detail": "no review yet"
+      },
+      "506": {
+        "owner": "waiting",
+        "nextMove": "Wait for 1 check",
+        "failing": [],
+        "running": [
+          "e2e"
+        ],
+        "unresolvedThreads": 0,
+        "claims": [
+          {
+            "number": 606,
+            "via": "branch"
+          }
+        ],
+        "detail": "1 running, no review yet"
+      }
+    }
+  }
+}

@@ -1,0 +1,920 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "locking-free-lock-is-acquired",
+      "family": "locking",
+      "description": "A free target lock is taken and the run is registered.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "acquire",
+        "watch-and-fix",
+        "own-er-re-po-issue1"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"result\":\"acquired\"",
+          "\"run_id\":"
+        ],
+        "path_exists": [
+          "{{TMP}}/state/runs/watch-and-fix/own-er-re-po-issue1.json"
+        ]
+      }
+    },
+    {
+      "id": "locking-live-lock-blocks-a-second-run",
+      "family": "locking",
+      "description": "A lock held by a live run stops a second run on the same target instead of producing two writers.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/state/locks/watch-and-fix/own-er-re-po-issue1.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"watch-and-fix\",\"key\":\"own-er-re-po-issue1\",\"run_id\":\"already-running\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "acquire",
+        "watch-and-fix",
+        "own-er-re-po-issue1"
+      ],
+      "expect": {
+        "exit_code": 3,
+        "stdout_matches": [
+          "\"result\":\"held\"",
+          "already-running"
+        ]
+      }
+    },
+    {
+      "id": "locking-stale-lease-is-taken-over-not-deleted",
+      "family": "locking",
+      "description": "A lease past its time-to-live is taken over; the previous run's registry entry is reused rather than discarded.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/state/locks/watch-and-fix/own-er-re-po-issue1.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"watch-and-fix\",\"key\":\"own-er-re-po-issue1\",\"run_id\":\"dead-run\",\"pid\":null,\"acquired_at\":{{PAST}},\"heartbeat\":{{PAST}},\"ttl\":900}",
+            "{{TMP}}/state/runs/watch-and-fix/own-er-re-po-issue1.json": "{\"schema_version\":1,\"kind\":\"run\",\"skill\":\"watch-and-fix\",\"key\":\"own-er-re-po-issue1\",\"run_id\":\"dead-run\",\"target\":{\"owner\":\"own-er\",\"repository\":\"re-po\",\"kind\":\"issue\",\"number\":1},\"worktree\":\"{{TMP}}/state/worktrees/watch-and-fix/own-er-re-po-issue1\",\"clone\":null,\"mode\":\"editable\",\"branch\":\"feat/1\",\"head_sha\":null,\"base_sha\":null,\"started_at\":{{PAST}},\"heartbeat\":{{PAST}},\"ttl\":900,\"pid\":null,\"state\":\"active\",\"artifact_globs\":[],\"meta\":{}}"
+          }
+        }
+      },
+      "invoke": [
+        "bash",
+        "-c",
+        "{{PKG}}/scripts/run_lock.sh acquire watch-and-fix own-er-re-po-issue1 && jq -r '.worktree' {{TMP}}/state/runs/watch-and-fix/own-er-re-po-issue1.json"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"result\":\"takeover\"",
+          "worktrees/watch-and-fix/own-er-re-po-issue1"
+        ]
+      }
+    },
+    {
+      "id": "locking-registry-records-the-checkout-mode",
+      "family": "state",
+      "description": "Checkout mode travels into the registry so safe-removal rules can be applied later.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "bash",
+        "-c",
+        "{{PKG}}/scripts/run_lock.sh acquire watch-and-fix own-er-re-po-issue2 --meta '{\"mode\":\"disposable-verification\"}' >/dev/null && jq -r '.mode' {{TMP}}/state/runs/watch-and-fix/own-er-re-po-issue2.json"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "^disposable-verification$"
+        ]
+      }
+    },
+    {
+      "id": "state-refuses-an-unknown-newer-schema-version",
+      "family": "state",
+      "description": "A persisted document from a newer schema is refused rather than guessed at, and is left untouched.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/state/runs/watch-and-fix/own-er-re-po-issue3.json": "{\"schema_version\":2,\"kind\":\"run\",\"skill\":\"watch-and-fix\",\"key\":\"own-er-re-po-issue3\",\"run_id\":\"future\"}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "remove",
+        "watch-and-fix",
+        "own-er-re-po-issue3",
+        "--run-id",
+        "future"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "schema_version 2",
+          "refusing to interpret"
+        ],
+        "path_exists": [
+          "{{TMP}}/state/runs/watch-and-fix/own-er-re-po-issue3.json"
+        ]
+      }
+    },
+    {
+      "id": "paths-worktree-path-is-derived-from-skill-and-target",
+      "family": "paths",
+      "description": "Two runs on different targets, and two skills on one target, can never share a worktree path.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "path",
+        "watch-and-fix",
+        "own-er",
+        "re-po",
+        "issue",
+        "12"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "worktrees/watch-and-fix/own-er-re-po-issue12$"
+        ]
+      }
+    },
+    {
+      "id": "paths-rejects-a-parent-reference",
+      "family": "paths",
+      "description": "A parent reference in a target component is rejected instead of escaping the state layout.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "path",
+        "watch-and-fix",
+        "..",
+        "re-po",
+        "issue",
+        "12"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "invalid owner"
+        ]
+      }
+    },
+    {
+      "id": "paths-rejects-a-separator-in-a-lock-key",
+      "family": "paths",
+      "description": "A path separator in a lock key is rejected.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "acquire",
+        "watch-and-fix",
+        "own-er/re-po"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "path separator"
+        ]
+      }
+    },
+    {
+      "id": "paths-refuses-a-symlinked-state-root",
+      "family": "paths",
+      "description": "A symlinked state root is refused rather than followed.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/link"
+        },
+        "fs": {
+          "dirs": [
+            "{{TMP}}/real"
+          ],
+          "symlinks": {
+            "{{TMP}}/link": "{{TMP}}/real"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "status",
+        "watch-and-fix",
+        "own-er-re-po-issue1"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "symlinked state path"
+        ]
+      }
+    },
+    {
+      "id": "identity-probes-logins-without-asking-the-user",
+      "family": "identity",
+      "description": "Identity selection probes the authenticated accounts and never interrupts the workflow to ask which to use.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com\n  Logged in to github.com account first-login (keyring)\n  Logged in to github.com account second-login (keyring)",
+          "auth token --user": "token-$MOCK_LAST_ARG",
+          "api user": "$GH_TOKEN_SUFFIX",
+          "api repos/": "{\"archived\":false,\"locked\":false,\"permissions\":{\"push\":true,\"pull\":true}}"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "select",
+        "--need",
+        "write",
+        "own-er/re-po#5"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"login\":\"first-login\"",
+          "capability probing"
+        ],
+        "path_exists": [
+          "{{TMP}}/state/config/identities.json"
+        ]
+      }
+    },
+    {
+      "id": "identity-does-not-save-a-login-that-failed-its-probe",
+      "family": "identity",
+      "description": "When no authenticated account satisfies the capability, every attempted login is reported and nothing is saved.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com\n  Logged in to github.com account first-login (keyring)\n  Logged in to github.com account second-login (keyring)",
+          "auth token --user": "token-$MOCK_LAST_ARG",
+          "api user": "$GH_TOKEN_SUFFIX",
+          "api repos/": "{\"archived\":false,\"locked\":false,\"permissions\":{\"push\":false,\"pull\":true}}"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "select",
+        "--need",
+        "write",
+        "own-er/re-po#5"
+      ],
+      "expect": {
+        "exit_code": 1,
+        "stderr_matches": [
+          "no authenticated account satisfies",
+          "first-login",
+          "second-login"
+        ],
+        "path_absent": [
+          "{{TMP}}/state/config/identities.json"
+        ]
+      }
+    },
+    {
+      "id": "identity-accepts-hyphenated-owner-and-repository-names",
+      "family": "identity",
+      "description": "Hyphenated owners and repository names parse correctly and are not split on the hyphen.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "get",
+        "own-er/re-po#42"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"target\":\"own-er/re-po#42\""
+        ]
+      }
+    },
+    {
+      "id": "identity-refuses-a-group-writable-configuration-path",
+      "family": "identity",
+      "description": "Saved identities never live in a directory another account can write.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "dirs": [
+            "{{TMP}}/state/config"
+          ],
+          "modes": {
+            "{{TMP}}/state/config": "770"
+          }
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "get",
+        "own-er/re-po#42"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "group- or world-writable"
+        ]
+      }
+    },
+    {
+      "id": "push-refuses-a-non-canonical-remote-url",
+      "family": "push",
+      "description": "Only the canonical https URL for the named repository is accepted; another host cannot receive the token.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "git-push",
+        "own-er/re-po#5",
+        "--repo",
+        "own-er/re-po",
+        "--remote-url",
+        "https://example.invalid/own-er/re-po.git",
+        "--source",
+        "HEAD",
+        "--dest",
+        "refs/heads/feat"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "canonical https URL"
+        ]
+      }
+    },
+    {
+      "id": "push-refuses-a-destination-outside-branch-refs",
+      "family": "push",
+      "description": "A destination outside refs/heads/ is refused, so a tag or arbitrary ref cannot be written.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "git-push",
+        "own-er/re-po#5",
+        "--repo",
+        "own-er/re-po",
+        "--remote-url",
+        "https://github.com/own-er/re-po.git",
+        "--source",
+        "HEAD",
+        "--dest",
+        "refs/tags/v1"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "refs/heads/"
+        ]
+      }
+    },
+    {
+      "id": "push-refuses-multiple-destinations",
+      "family": "push",
+      "description": "One push writes exactly one branch ref.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "git-push",
+        "own-er/re-po#5",
+        "--repo",
+        "own-er/re-po",
+        "--remote-url",
+        "https://github.com/own-er/re-po.git",
+        "--source",
+        "HEAD",
+        "--dest",
+        "refs/heads/a refs/heads/b"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "exactly one branch ref"
+        ]
+      }
+    },
+    {
+      "id": "push-refuses-a-short-force-with-lease-sha",
+      "family": "push",
+      "description": "A lease must name the exact previously observed full SHA, so a partial value cannot weaken it.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "git-push",
+        "own-er/re-po#5",
+        "--repo",
+        "own-er/re-po",
+        "--remote-url",
+        "https://github.com/own-er/re-po.git",
+        "--source",
+        "HEAD",
+        "--dest",
+        "refs/heads/feat",
+        "--force-with-lease",
+        "abc123"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "40-character SHA"
+        ]
+      }
+    },
+    {
+      "id": "push-refuses-malicious-url-rewrites",
+      "family": "push",
+      "description": "Configured url insteadOf rewrites could redirect the credentialed push, so the push fails closed.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state",
+          "HOME": "{{TMP}}/evil-home"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/evil-home/.gitconfig": "[url \"https://example.invalid/\"]\n\tinsteadOf = https://github.com/\n"
+          }
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "git-push",
+        "own-er/re-po#5",
+        "--repo",
+        "own-er/re-po",
+        "--remote-url",
+        "https://github.com/own-er/re-po.git",
+        "--source",
+        "HEAD",
+        "--dest",
+        "refs/heads/feat"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "insteadOf"
+        ]
+      }
+    },
+    {
+      "id": "polling-captures-a-complete-paginated-snapshot",
+      "family": "polling",
+      "description": "A full capture reports the head tuple, the check summary, the unresolved thread set, a fresh cursor, and the fingerprint that gates every later capture.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com\n  Logged in to github.com account first-login (keyring)",
+          "auth token --user": "token-$MOCK_LAST_ARG",
+          "api user": "$GH_TOKEN_SUFFIX",
+          "api repos/": "{\"archived\":false,\"locked\":false,\"permissions\":{\"push\":true,\"pull\":true}}",
+          "api graphql": "{\"data\":{\"viewer\":{\"login\":\"first-login\"},\"repository\":{\"pullRequest\":{\"number\":7,\"title\":\"Fixture pull request\",\"url\":\"https://example.invalid/pr/7\",\"state\":\"OPEN\",\"isDraft\":false,\"updatedAt\":\"2026-01-02T00:00:00Z\",\"author\":{\"login\":\"an-author\"},\"baseRefName\":\"main\",\"headRefName\":\"feat\",\"headRefOid\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"baseRefOid\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"mergeable\":\"MERGEABLE\",\"mergeStateStatus\":\"CLEAN\",\"reviewDecision\":null,\"reviewThreads\":{\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null},\"nodes\":[{\"id\":\"THREAD_1\",\"isResolved\":false,\"isOutdated\":false,\"path\":\"src/a.ts\",\"line\":12,\"comments\":{\"pageInfo\":{\"hasNextPage\":false},\"nodes\":[{\"id\":\"RC_1\",\"url\":\"https://example.invalid/rc/1\",\"createdAt\":\"2026-01-02T00:00:00Z\",\"updatedAt\":\"2026-01-02T00:00:00Z\",\"lastEditedAt\":null,\"body\":\"a finding\",\"author\":{\"login\":\"a-reviewer\",\"__typename\":\"User\"}}]}}]}}}}}",
+          "issues/7/comments": "[{\"id\":101,\"user\":{\"login\":\"a-human\",\"type\":\"User\"},\"author_association\":\"MEMBER\",\"created_at\":\"2026-01-02T00:00:00Z\",\"updated_at\":\"2026-01-02T00:00:00Z\",\"html_url\":\"https://example.invalid/c/101\",\"body\":\"please look at this\"}]",
+          "pulls/7/reviews": "[]",
+          "/check-runs": "{\"check_runs\":[{\"id\":9,\"name\":\"unit\",\"status\":\"completed\",\"conclusion\":\"success\",\"html_url\":\"https://example.invalid/check/9\"}]}"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/poll_pr.sh",
+        "--once",
+        "own-er/re-po#7"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"kind\":\"snapshot\"",
+          "\"complete\":true",
+          "\"head_sha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",
+          "\"base_sha\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"",
+          "\"unresolved_thread_ids\":\\[\"THREAD_1\"\\]",
+          "\"cursor\":\"v1:",
+          "\"viewer\":\"first-login\"",
+          "\"fingerprint\":\"sha256:[0-9a-f]{64}\""
+        ]
+      }
+    },
+    {
+      "id": "polling-a-fingerprint-covers-the-whole-observable-state",
+      "family": "polling",
+      "description": "The fingerprint is the fixture's own. A mismatch here means the set of change-relevant fields moved, which would silently re-wake or silently silence every watcher.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com\n  Logged in to github.com account first-login (keyring)",
+          "auth token --user": "token-$MOCK_LAST_ARG",
+          "api user": "$GH_TOKEN_SUFFIX",
+          "api repos/": "{\"archived\":false,\"locked\":false,\"permissions\":{\"push\":true,\"pull\":true}}",
+          "api graphql": "{\"data\":{\"viewer\":{\"login\":\"first-login\"},\"repository\":{\"pullRequest\":{\"number\":7,\"title\":\"Fixture pull request\",\"url\":\"https://example.invalid/pr/7\",\"state\":\"OPEN\",\"isDraft\":false,\"updatedAt\":\"2026-01-02T00:00:00Z\",\"author\":{\"login\":\"an-author\"},\"baseRefName\":\"main\",\"headRefName\":\"feat\",\"headRefOid\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"baseRefOid\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"mergeable\":\"MERGEABLE\",\"mergeStateStatus\":\"CLEAN\",\"reviewDecision\":null,\"reviewThreads\":{\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null},\"nodes\":[{\"id\":\"THREAD_1\",\"isResolved\":false,\"isOutdated\":false,\"path\":\"src/a.ts\",\"line\":12,\"comments\":{\"pageInfo\":{\"hasNextPage\":false},\"nodes\":[{\"id\":\"RC_1\",\"url\":\"https://example.invalid/rc/1\",\"createdAt\":\"2026-01-02T00:00:00Z\",\"updatedAt\":\"2026-01-02T00:00:00Z\",\"lastEditedAt\":null,\"body\":\"a finding\",\"author\":{\"login\":\"a-reviewer\",\"__typename\":\"User\"}}]}}]}}}}}",
+          "issues/7/comments": "[{\"id\":101,\"user\":{\"login\":\"a-human\",\"type\":\"User\"},\"author_association\":\"MEMBER\",\"created_at\":\"2026-01-02T00:00:00Z\",\"updated_at\":\"2026-01-02T00:00:00Z\",\"html_url\":\"https://example.invalid/c/101\",\"body\":\"please look at this\"}]",
+          "pulls/7/reviews": "[]",
+          "/check-runs": "{\"check_runs\":[{\"id\":9,\"name\":\"unit\",\"status\":\"completed\",\"conclusion\":\"success\",\"html_url\":\"https://example.invalid/check/9\"}]}"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/poll_pr.sh",
+        "--once",
+        "own-er/re-po#7"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"fingerprint\":\"sha256:6e15ffa6095e9da458a7ea69ba2ae85616400b72f3ef6ac77003f14f40f6b290\""
+        ]
+      }
+    },
+    {
+      "id": "polling-an-unchanged-capture-exits-three-with-an-acknowledgement",
+      "family": "polling",
+      "description": "An unchanged pull request answers with a one-line acknowledgement and the distinct unchanged exit, so a gated wake-up ends after one script call and the model never reads a snapshot that says nothing.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com\n  Logged in to github.com account first-login (keyring)",
+          "auth token --user": "token-$MOCK_LAST_ARG",
+          "api user": "$GH_TOKEN_SUFFIX",
+          "api repos/": "{\"archived\":false,\"locked\":false,\"permissions\":{\"push\":true,\"pull\":true}}",
+          "api graphql": "{\"data\":{\"viewer\":{\"login\":\"first-login\"},\"repository\":{\"pullRequest\":{\"number\":7,\"title\":\"Fixture pull request\",\"url\":\"https://example.invalid/pr/7\",\"state\":\"OPEN\",\"isDraft\":false,\"updatedAt\":\"2026-01-02T00:00:00Z\",\"author\":{\"login\":\"an-author\"},\"baseRefName\":\"main\",\"headRefName\":\"feat\",\"headRefOid\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"baseRefOid\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"mergeable\":\"MERGEABLE\",\"mergeStateStatus\":\"CLEAN\",\"reviewDecision\":null,\"reviewThreads\":{\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null},\"nodes\":[{\"id\":\"THREAD_1\",\"isResolved\":false,\"isOutdated\":false,\"path\":\"src/a.ts\",\"line\":12,\"comments\":{\"pageInfo\":{\"hasNextPage\":false},\"nodes\":[{\"id\":\"RC_1\",\"url\":\"https://example.invalid/rc/1\",\"createdAt\":\"2026-01-02T00:00:00Z\",\"updatedAt\":\"2026-01-02T00:00:00Z\",\"lastEditedAt\":null,\"body\":\"a finding\",\"author\":{\"login\":\"a-reviewer\",\"__typename\":\"User\"}}]}}]}}}}}",
+          "issues/7/comments": "[{\"id\":101,\"user\":{\"login\":\"a-human\",\"type\":\"User\"},\"author_association\":\"MEMBER\",\"created_at\":\"2026-01-02T00:00:00Z\",\"updated_at\":\"2026-01-02T00:00:00Z\",\"html_url\":\"https://example.invalid/c/101\",\"body\":\"please look at this\"}]",
+          "pulls/7/reviews": "[]",
+          "/check-runs": "{\"check_runs\":[{\"id\":9,\"name\":\"unit\",\"status\":\"completed\",\"conclusion\":\"success\",\"html_url\":\"https://example.invalid/check/9\"}]}"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/poll_pr.sh",
+        "--once",
+        "--if-changed-since",
+        "sha256:6e15ffa6095e9da458a7ea69ba2ae85616400b72f3ef6ac77003f14f40f6b290",
+        "own-er/re-po#7"
+      ],
+      "expect": {
+        "exit_code": 3,
+        "stdout_matches": [
+          "\"unchanged\":true",
+          "\"kind\":\"unchanged\"",
+          "\"fingerprint\":\"sha256:6e15ffa6095e9da458a7ea69ba2ae85616400b72f3ef6ac77003f14f40f6b290\""
+        ],
+        "stdout_not_matches": [
+          "\"events\"",
+          "\"checks\"",
+          "\"kind\":\"snapshot\""
+        ]
+      }
+    },
+    {
+      "id": "polling-a-changed-capture-is-delivered-in-full",
+      "family": "polling",
+      "description": "A baseline the pull request no longer matches produces the complete snapshot and the ordinary success exit.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com\n  Logged in to github.com account first-login (keyring)",
+          "auth token --user": "token-$MOCK_LAST_ARG",
+          "api user": "$GH_TOKEN_SUFFIX",
+          "api repos/": "{\"archived\":false,\"locked\":false,\"permissions\":{\"push\":true,\"pull\":true}}",
+          "api graphql": "{\"data\":{\"viewer\":{\"login\":\"first-login\"},\"repository\":{\"pullRequest\":{\"number\":7,\"title\":\"Fixture pull request\",\"url\":\"https://example.invalid/pr/7\",\"state\":\"OPEN\",\"isDraft\":false,\"updatedAt\":\"2026-01-02T00:00:00Z\",\"author\":{\"login\":\"an-author\"},\"baseRefName\":\"main\",\"headRefName\":\"feat\",\"headRefOid\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"baseRefOid\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"mergeable\":\"MERGEABLE\",\"mergeStateStatus\":\"CLEAN\",\"reviewDecision\":null,\"reviewThreads\":{\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null},\"nodes\":[{\"id\":\"THREAD_1\",\"isResolved\":false,\"isOutdated\":false,\"path\":\"src/a.ts\",\"line\":12,\"comments\":{\"pageInfo\":{\"hasNextPage\":false},\"nodes\":[{\"id\":\"RC_1\",\"url\":\"https://example.invalid/rc/1\",\"createdAt\":\"2026-01-02T00:00:00Z\",\"updatedAt\":\"2026-01-02T00:00:00Z\",\"lastEditedAt\":null,\"body\":\"a finding\",\"author\":{\"login\":\"a-reviewer\",\"__typename\":\"User\"}}]}}]}}}}}",
+          "issues/7/comments": "[{\"id\":101,\"user\":{\"login\":\"a-human\",\"type\":\"User\"},\"author_association\":\"MEMBER\",\"created_at\":\"2026-01-02T00:00:00Z\",\"updated_at\":\"2026-01-02T00:00:00Z\",\"html_url\":\"https://example.invalid/c/101\",\"body\":\"please look at this\"}]",
+          "pulls/7/reviews": "[]",
+          "/check-runs": "{\"check_runs\":[{\"id\":9,\"name\":\"unit\",\"status\":\"completed\",\"conclusion\":\"success\",\"html_url\":\"https://example.invalid/check/9\"}]}"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/poll_pr.sh",
+        "--once",
+        "--if-changed-since",
+        "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "own-er/re-po#7"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"kind\":\"snapshot\"",
+          "\"changed\":true",
+          "\"unresolved_thread_ids\""
+        ],
+        "stdout_not_matches": [
+          "\"unchanged\":true"
+        ]
+      }
+    },
+    {
+      "id": "polling-a-new-comment-changes-the-fingerprint",
+      "family": "polling",
+      "description": "The event collections are fingerprinted in full, so a new comment is a change even though no pull-request field moved.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com\n  Logged in to github.com account first-login (keyring)",
+          "auth token --user": "token-$MOCK_LAST_ARG",
+          "api user": "$GH_TOKEN_SUFFIX",
+          "api repos/": "{\"archived\":false,\"locked\":false,\"permissions\":{\"push\":true,\"pull\":true}}",
+          "api graphql": "{\"data\":{\"viewer\":{\"login\":\"first-login\"},\"repository\":{\"pullRequest\":{\"number\":7,\"title\":\"Fixture pull request\",\"url\":\"https://example.invalid/pr/7\",\"state\":\"OPEN\",\"isDraft\":false,\"updatedAt\":\"2026-01-02T00:00:00Z\",\"author\":{\"login\":\"an-author\"},\"baseRefName\":\"main\",\"headRefName\":\"feat\",\"headRefOid\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"baseRefOid\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"mergeable\":\"MERGEABLE\",\"mergeStateStatus\":\"CLEAN\",\"reviewDecision\":null,\"reviewThreads\":{\"pageInfo\":{\"hasNextPage\":false,\"endCursor\":null},\"nodes\":[{\"id\":\"THREAD_1\",\"isResolved\":false,\"isOutdated\":false,\"path\":\"src/a.ts\",\"line\":12,\"comments\":{\"pageInfo\":{\"hasNextPage\":false},\"nodes\":[{\"id\":\"RC_1\",\"url\":\"https://example.invalid/rc/1\",\"createdAt\":\"2026-01-02T00:00:00Z\",\"updatedAt\":\"2026-01-02T00:00:00Z\",\"lastEditedAt\":null,\"body\":\"a finding\",\"author\":{\"login\":\"a-reviewer\",\"__typename\":\"User\"}}]}}]}}}}}",
+          "issues/7/comments": "[{\"id\":101,\"user\":{\"login\":\"a-human\",\"type\":\"User\"},\"author_association\":\"MEMBER\",\"created_at\":\"2026-01-02T00:00:00Z\",\"updated_at\":\"2026-01-02T00:00:00Z\",\"html_url\":\"https://example.invalid/c/101\",\"body\":\"please look at this\"},{\"id\":102,\"user\":{\"login\":\"a-human\",\"type\":\"User\"},\"author_association\":\"MEMBER\",\"created_at\":\"2026-01-03T00:00:00Z\",\"updated_at\":\"2026-01-03T00:00:00Z\",\"html_url\":\"https://example.invalid/c/102\",\"body\":\"one more thought\"}]",
+          "pulls/7/reviews": "[]",
+          "/check-runs": "{\"check_runs\":[{\"id\":9,\"name\":\"unit\",\"status\":\"completed\",\"conclusion\":\"success\",\"html_url\":\"https://example.invalid/check/9\"}]}"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/poll_pr.sh",
+        "--once",
+        "--if-changed-since",
+        "sha256:6e15ffa6095e9da458a7ea69ba2ae85616400b72f3ef6ac77003f14f40f6b290",
+        "own-er/re-po#7"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"kind\":\"snapshot\"",
+          "\"changed\":true"
+        ],
+        "stdout_not_matches": [
+          "\"unchanged\":true"
+        ]
+      }
+    },
+    {
+      "id": "polling-refuses-a-malformed-fingerprint-before-any-github-call",
+      "family": "polling",
+      "description": "A baseline no snapshot could have produced is a caller bug. It is refused before a single GitHub call is paid for, rather than reporting every capture as changed.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {}
+      },
+      "invoke": [
+        "{{PKG}}/scripts/poll_pr.sh",
+        "--once",
+        "--if-changed-since",
+        "yesterday",
+        "own-er/re-po#7"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "sha256"
+        ],
+        "stdout_not_matches": [
+          "\"kind\""
+        ]
+      }
+    },
+    {
+      "id": "polling-refuses-an-interval-below-the-floor",
+      "family": "polling",
+      "description": "The 120-second cadence floor cannot be lowered.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/poll_pr.sh",
+        "--watch",
+        "--interval",
+        "60",
+        "own-er/re-po#7"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "at least 120 seconds"
+        ]
+      }
+    },
+    {
+      "id": "polling-rejects-a-target-that-is-not-a-pull-request",
+      "family": "polling",
+      "description": "A repository or issue target is refused rather than guessed into a pull-request number.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/poll_pr.sh",
+        "--once",
+        "own-er/re-po"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "unrecognized target"
+        ]
+      }
+    },
+    {
+      "id": "polling-an-incomplete-capture-does-not-advance-the-cursor",
+      "family": "polling",
+      "description": "A failed page emits an error snapshot that repeats the previous cursor, so no event is silently lost.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com\n  Logged in to github.com account first-login (keyring)",
+          "auth token --user": "token-$MOCK_LAST_ARG",
+          "api user": "$GH_TOKEN_SUFFIX",
+          "api repos/": "{\"archived\":false,\"locked\":false,\"permissions\":{\"push\":true,\"pull\":true}}"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/poll_pr.sh",
+        "--once",
+        "--cursor",
+        "v1:2026-01-01T00:00:00Z",
+        "own-er/re-po#7"
+      ],
+      "expect": {
+        "exit_code": 1,
+        "stdout_matches": [
+          "\"kind\":\"error\"",
+          "\"complete\":false",
+          "\"cursor\":\"v1:2026-01-01T00:00:00Z\""
+        ],
+        "stdout_not_matches": [
+          "\"kind\":\"snapshot\""
+        ]
+      }
+    },
+    {
+      "id": "polling-an-error-is-never-masked-by-the-change-gate",
+      "family": "polling",
+      "description": "An error snapshot is emitted even under --if-changed-since, and it never reports the unchanged exit, so a broken capture can never be mistaken for a quiet pull request.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com\n  Logged in to github.com account first-login (keyring)",
+          "auth token --user": "token-$MOCK_LAST_ARG",
+          "api user": "$GH_TOKEN_SUFFIX",
+          "api repos/": "{\"archived\":false,\"locked\":false,\"permissions\":{\"push\":true,\"pull\":true}}"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/poll_pr.sh",
+        "--once",
+        "--if-changed-since",
+        "sha256:6e15ffa6095e9da458a7ea69ba2ae85616400b72f3ef6ac77003f14f40f6b290",
+        "own-er/re-po#7"
+      ],
+      "expect": {
+        "exit_code": 1,
+        "stdout_matches": [
+          "\"kind\":\"error\"",
+          "\"complete\":false"
+        ],
+        "stdout_not_matches": [
+          "\"unchanged\":true"
+        ]
+      }
+    },
+    {
+      "id": "locking-a-free-heavy-slot-is-acquired",
+      "family": "locking",
+      "description": "The heavy-task semaphore hands a free slot to the first acquirer and reports the shared capacity of two.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "sem-acquire",
+        "heavy",
+        "local",
+        "--run-id",
+        "run-one"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"result\":\"acquired\"",
+          "\"semaphore\":\"heavy\"",
+          "\"capacity\":2"
+        ]
+      }
+    },
+    {
+      "id": "locking-a-full-heavy-queue-turns-away-a-third-run",
+      "family": "locking",
+      "description": "With both heavy slots held by live runs, a third acquirer queues; at its wait limit it reports exhausted and exits 3 rather than starting a third heavy task.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state",
+          "TEAM_SKILLS_SEM_WAIT": "0"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/state/locks/sem-heavy/local/slot-1.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"sem-heavy\",\"key\":\"local\",\"run_id\":\"heavy-one\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}",
+            "{{TMP}}/state/locks/sem-heavy/local/slot-2.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"sem-heavy\",\"key\":\"local\",\"run_id\":\"heavy-two\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "sem-acquire",
+        "heavy",
+        "local",
+        "--run-id",
+        "run-three"
+      ],
+      "expect": {
+        "exit_code": 3,
+        "stdout_matches": [
+          "\"result\":\"exhausted\"",
+          "\"capacity\":2"
+        ]
+      }
+    }
+  ]
+}

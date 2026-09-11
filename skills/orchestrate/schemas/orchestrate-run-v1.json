@@ -1,0 +1,220 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Orchestrate run state, version 1",
+  "description": "One orchestration of one ticket: the decisions the user gave at intake, the resolved lane plan, the cycle each stage is on, and what the loop has already acted on. It is what a resumed run reads instead of asking the user everything twice. It records no time budget, because the run has none.",
+  "type": "object",
+  "required": ["schema_version", "kind", "target", "intake", "stages"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1, "maximum": 1 },
+    "kind": { "const": "orchestrate-run" },
+    "run_id": { "type": "string" },
+    "started_at": { "type": ["string", "null"] },
+    "decision_policy": {
+      "enum": ["attended", "yolo"],
+      "description": "Who answers when a stage would need the human. Resolved once at intake — the request's word over the profile's, else attended — and never changed midway: a resumed run resumes this policy."
+    },
+    "decision_policy_source": { "enum": ["request", "profile", "default"] },
+    "decisions": {
+      "type": "array",
+      "description": "Every decision comment a yolo run posted on the ticket, in order. Numbering continues across a resume, and the outcome comment lists them all so the run can be audited from the ticket alone.",
+      "items": {
+        "type": "object",
+        "required": ["n"],
+        "additionalProperties": false,
+        "properties": {
+          "n": { "type": "integer", "minimum": 1 },
+          "stage": { "type": ["string", "null"] },
+          "cycle": { "type": ["integer", "null"] },
+          "url": { "type": ["string", "null"] },
+          "summary": { "type": ["string", "null"] },
+          "at": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "required": ["owner", "repository", "number"],
+      "additionalProperties": false,
+      "properties": {
+        "owner": { "type": "string" },
+        "repository": { "type": "string" },
+        "number": { "type": "integer", "minimum": 1 },
+        "url": { "type": ["string", "null"] },
+        "pr_url": { "type": ["string", "null"] },
+        "pr_number": { "type": ["integer", "null"] }
+      }
+    },
+    "intake": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "manual_qa": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "decision": { "enum": ["required", "waived"] },
+            "questionnaire": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "run_workflow": { "type": ["string", "null"] },
+                "roles_and_credentials": { "type": ["string", "null"] },
+                "synthetic_data": { "type": ["string", "null"] },
+                "environment_authorization": { "type": ["string", "null"] },
+                "caution_policy": { "enum": ["proceed", "do-not-run"] },
+                "cluster_authorization": { "type": ["string", "null"] },
+                "required_scenarios": { "type": "array", "items": { "type": "string" } },
+                "accepted_limitations": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "human_reviewer": { "type": ["string", "null"] },
+        "browser_visible": { "type": ["boolean", "null"] },
+        "browser_authorization": { "type": ["string", "null"] },
+        "record_comment_url": { "type": ["string", "null"] },
+        "outcome_comment_url": { "type": ["string", "null"] }
+      }
+    },
+    "lane_plan": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "lane": { "type": "string" },
+          "model": { "type": ["string", "null"] },
+          "effort": { "type": ["string", "null"] },
+          "runtime_label": { "type": ["string", "null"] },
+          "package": { "type": ["string", "null"] },
+          "degraded_from": { "type": ["string", "null"] },
+          "degraded_reason": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "stages": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "state": { "enum": ["pending", "running", "finished", "failed", "skipped", "stopped"] },
+          "run_id": { "type": ["string", "null"] },
+          "handle": {
+            "type": ["string", "null"],
+            "description": "The live agent of this stage when the lane can keep one across cycles, so the next cycle resumes it with its context intact rather than starting fresh."
+          },
+          "launched_at": { "type": ["string", "null"] },
+          "last_progress_at": {
+            "type": ["string", "null"],
+            "description": "When this run last OBSERVED progress from this stage — its announcement, a commit, a comment, a growing log, a live process. Never when it was last waited on: waiting is not progress. The stall check measures from here."
+          },
+          "stall_checks": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Stall checks run against the cycle currently in flight. Two consecutive checks finding no evidence of work mean the cycle is hung: stop it and spawn it again, which counts as an abnormal end."
+          },
+          "relaunches": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Consecutive abnormal ends of this stage. One is spawned again with the same brief; a second pauses the run for the user."
+          },
+          "cycles": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Cycles of this stage the run has spawned. A cycle is routing, not a relaunch: only an abnormal end counts toward relaunches."
+          },
+          "result": { "type": ["string", "null"] },
+          "retained_worktree": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "progress": {
+      "type": "object",
+      "description": "What the loop has read and acted on. Nothing watches: these are the results of this run's own reads between cycles.",
+      "additionalProperties": false,
+      "properties": {
+        "cursor": { "type": ["string", "null"] },
+        "fingerprint": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+        "acted_signal_ids": { "type": "array", "items": { "type": "string" } },
+        "next_cycle": {
+          "type": ["string", "null"],
+          "description": "The stage the pull request is owed next, decided from the last report and this run's own read.",
+          "enum": ["create-clarity", "implement", "pr-review", "pr-fix", "manual-qa", null]
+        },
+        "unresolved_thread_sets": {
+          "type": "array",
+          "description": "One sorted unresolved-thread-id set per Developer cycle that moved the head; three identical consecutive sets mean the loop is not converging and the run pauses for the user.",
+          "items": { "type": "array", "items": { "type": "string" } }
+        },
+        "qa_failures": {
+          "type": "object",
+          "description": "Scenario identifier to the number of times Manual QA has reported it failing. Three on one scenario pauses the run for the user.",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "pull_requests": {
+      "type": "object",
+      "description": "The work set: one entry per open pull request the ticket governs, keyed OWNER/REPOSITORY#NUMBER, kept across the between-cycle re-reads. Each entry is that pull request's own position — every pull request keeps its own children, so its runs, cursor, and fingerprint never mix with another member's. An entry whose pull request closed or merged mid-run stays, with its lifecycle recorded, for the outcome comment.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "url": { "type": ["string", "null"] },
+          "lifecycle": { "enum": ["open", "closed", "merged"] },
+          "parent": {
+            "type": ["string", "null"],
+            "description": "The set member whose head branch is this pull request's base branch, keyed the same way, when this pull request is a stacked child. The parent is worked first; this pull request's own Reviewer handles the base movement the parent causes."
+          },
+          "cursor": { "type": ["string", "null"] },
+          "fingerprint": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+          "stage_runs": {
+            "type": "object",
+            "description": "Stage name to that stage's run identifier on this pull request, so resuming a cycle resumes this pull request's own runs, locks, and worktrees rather than another member's.",
+            "additionalProperties": { "type": ["string", "null"] }
+          },
+          "green_light_url": { "type": ["string", "null"] },
+          "qa": {
+            "type": ["string", "null"],
+            "description": "This pull request's Manual QA evidence link or recorded waiver, for the outcome comment."
+          },
+          "unresolved_thread_sets": {
+            "type": "array",
+            "description": "As progress.unresolved_thread_sets, scoped to this pull request: the convergence test never mixes members of the set.",
+            "items": { "type": "array", "items": { "type": "string" } }
+          },
+          "qa_failures": {
+            "type": "object",
+            "description": "As progress.qa_failures, scoped to this pull request.",
+            "additionalProperties": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "paused": {
+      "type": "object",
+      "description": "The run is waiting for the user and holds everything it holds. It is not stopped: the answer goes into the next cycle's brief and the loop continues. Only an attended run pauses — under yolo the same moment becomes a posted decision, and the loop continues without a human.",
+      "additionalProperties": false,
+      "properties": {
+        "reason": { "enum": ["not-converging", "question-from-stage", "qa-blocked"] },
+        "question": { "type": ["string", "null"] },
+        "detail": { "type": ["string", "null"] },
+        "at": { "type": ["string", "null"] }
+      }
+    },
+    "stopped": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "enum": ["readiness", "clarity-halt", "stage-failure", "user-stop", "pr-closed", "pr-merged", "yolo-stop"],
+          "description": "'yolo-stop' is a decision this run took and posted with its reasoning before stopping — a clarity 'reconsider the work' it agreed with, or the same non-convergence condition tripping again after a yolo decision. A yolo run never stops on a question."
+        },
+        "detail": { "type": ["string", "null"] },
+        "at": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

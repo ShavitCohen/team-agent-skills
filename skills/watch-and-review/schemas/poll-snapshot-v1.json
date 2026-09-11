@@ -1,0 +1,98 @@
+{
+  "$comment": "shared-component: poll-snapshot-v1.json v3 sha256=b10324cd3c255e4f8c0caf5f65c032fff9dafb41752326b6f6062e6348643a63",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pull-request polling snapshot, version 1",
+  "description": "One capture emitted by poll_pr.sh. An error snapshot never advances the cursor. An unchanged acknowledgement carries no pull-request content beyond identity: it says only that the fingerprint has not moved.",
+  "type": "object",
+  "required": ["schema_version", "kind", "captured_at", "viewer", "pull_request"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1, "maximum": 1 },
+    "kind": { "enum": ["snapshot", "error", "unchanged"] },
+    "captured_at": { "type": "string" },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "viewer": { "type": ["string", "null"] },
+    "error": { "type": ["string", "null"] },
+    "complete": { "type": "boolean" },
+    "fingerprint": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+    "unchanged": { "type": "boolean" },
+    "changed": { "type": "boolean" },
+    "cursor": { "type": ["string", "null"] },
+    "previous_cursor": { "type": ["string", "null"] },
+    "pull_request": {
+      "type": "object",
+      "required": ["repository", "number", "url", "state"],
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "type": "string", "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$" },
+        "number": { "type": "integer", "minimum": 1 },
+        "title": { "type": ["string", "null"] },
+        "url": { "type": "string" },
+        "state": { "type": ["string", "null"] },
+        "is_draft": { "type": ["boolean", "null"] },
+        "author": { "type": ["string", "null"] },
+        "base_ref": { "type": ["string", "null"] },
+        "head_ref": { "type": ["string", "null"] },
+        "head_sha": { "type": ["string", "null"] },
+        "base_sha": { "type": ["string", "null"] },
+        "merge_base": { "type": ["string", "null"] },
+        "updated_at": { "type": ["string", "null"] },
+        "mergeable": { "type": ["string", "null"] },
+        "merge_state_status": { "type": ["string", "null"] },
+        "review_decision": { "type": ["string", "null"] }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "pending": { "type": "integer", "minimum": 0 },
+        "failing": { "type": "integer", "minimum": 0 },
+        "required_known": { "type": "boolean" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "state"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "state": { "type": ["string", "null"] },
+              "required": { "type": ["boolean", "null"] },
+              "url": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "enum": ["comment", "review", "review_thread", "thread_reply"] },
+          "thread_id": { "type": ["string", "null"] },
+          "author": { "type": ["string", "null"] },
+          "author_association": { "type": ["string", "null"] },
+          "author_is_bot": { "type": ["boolean", "null"] },
+          "created_at": { "type": ["string", "null"] },
+          "updated_at": { "type": ["string", "null"] },
+          "edited_at": { "type": ["string", "null"] },
+          "state": { "type": ["string", "null"] },
+          "path": { "type": ["string", "null"] },
+          "line": { "type": ["integer", "null"] },
+          "is_resolved": { "type": ["boolean", "null"] },
+          "is_outdated": { "type": ["boolean", "null"] },
+          "url": { "type": ["string", "null"] },
+          "body": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "unresolved_thread_ids": { "type": "array", "items": { "type": "string" } }
+  }
+}

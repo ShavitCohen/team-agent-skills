@@ -1,0 +1,61 @@
+{
+  "$comment": "shared-component: cases-v1.json v1 sha256=c522cb1e9bc057623273ef875e291e30aa5bd26d42429ce6c03015c1180a73dd",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Deterministic test cases, version 1",
+  "description": "Every scenario family for one package. Materialized into a temporary root and run offline by tests/validate.sh.",
+  "type": "object",
+  "required": ["schema_version", "cases"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1, "maximum": 1 },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "family", "description", "given", "invoke", "expect"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+          "family": {
+            "enum": ["locking", "identity", "push", "polling", "paths", "state", "inventory"]
+          },
+          "description": { "type": "string" },
+          "given": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "fs": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "dirs": { "type": "array", "items": { "type": "string" } },
+                  "files": { "type": "object", "additionalProperties": { "type": "string" } },
+                  "symlinks": { "type": "object", "additionalProperties": { "type": "string" } },
+                  "modes": { "type": "object", "additionalProperties": { "type": "string" } }
+                }
+              },
+              "env": { "type": "object", "additionalProperties": { "type": "string" } },
+              "gh": { "type": "object", "additionalProperties": { "type": "string" } },
+              "git": { "type": "object", "additionalProperties": { "type": "string" } }
+            }
+          },
+          "invoke": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "expect": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "exit_code": { "type": "integer" },
+              "stdout_matches": { "type": "array", "items": { "type": "string" } },
+              "stdout_not_matches": { "type": "array", "items": { "type": "string" } },
+              "stderr_matches": { "type": "array", "items": { "type": "string" } },
+              "fs_unchanged": { "type": "boolean" },
+              "path_exists": { "type": "array", "items": { "type": "string" } },
+              "path_absent": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

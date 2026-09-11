@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "state-an-impossible-cpu-threshold-returns-do-not-run",
+      "family": "state",
+      "description": "The capacity gate deterministically blocks on a threshold no machine can meet, names its blocker, and mutates nothing.",
+      "given": {
+        "fs": {
+          "dirs": [
+            "{{TMP}}/project"
+          ]
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/k8s_preflight.py",
+        "--path",
+        "{{TMP}}/project",
+        "--min-cpus",
+        "100000",
+        "--min-runtime-cpus",
+        "0",
+        "--min-runtime-memory-gib",
+        "0"
+      ],
+      "expect": {
+        "exit_code": 20,
+        "stdout_matches": [
+          "do-not-run",
+          "recommendation"
+        ],
+        "fs_unchanged": true
+      }
+    },
+    {
+      "id": "state-the-capacity-gate-answers-help",
+      "family": "state",
+      "description": "The capacity helper documents itself offline without touching any environment.",
+      "given": {},
+      "invoke": [
+        "{{PKG}}/scripts/k8s_preflight.py",
+        "--help"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "usage"
+        ]
+      }
+    },
+    {
+      "id": "locking-acquire-status-release-round-trip",
+      "family": "locking",
+      "description": "A QA run takes its target lock, is visible as live while it holds it, and releases cleanly when the run ends.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "bash",
+        "-c",
+        "{{PKG}}/scripts/run_lock.sh acquire manual-qa own-er-re-po-pr7 && {{PKG}}/scripts/run_lock.sh status manual-qa own-er-re-po-pr7 && {{PKG}}/scripts/run_lock.sh release manual-qa own-er-re-po-pr7"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"result\":\"acquired\"",
+          "\"lock\":\"live\"",
+          "\"result\":\"released\""
+        ],
+        "path_exists": [
+          "{{TMP}}/state/runs/manual-qa/own-er-re-po-pr7.json"
+        ],
+        "path_absent": [
+          "{{TMP}}/state/locks/manual-qa/own-er-re-po-pr7.lock"
+        ]
+      }
+    },
+    {
+      "id": "locking-a-live-lock-refuses-a-second-qa-run",
+      "family": "locking",
+      "description": "A second Manual QA run on the same pull request is refused while the first is live, instead of producing two writers on one environment.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/state/locks/manual-qa/own-er-re-po-pr7.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"manual-qa\",\"key\":\"own-er-re-po-pr7\",\"run_id\":\"already-testing\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "acquire",
+        "manual-qa",
+        "own-er-re-po-pr7"
+      ],
+      "expect": {
+        "exit_code": 3,
+        "stdout_matches": [
+          "\"result\":\"held\"",
+          "already-testing"
+        ]
+      }
+    },
+    {
+      "id": "locking-a-single-instance-environment-locks-as-a-shared-resource",
+      "family": "locking",
+      "description": "A single-instance local environment is locked as a shared resource by the owning run and released by the same run identifier.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "bash",
+        "-c",
+        "{{PKG}}/scripts/run_lock.sh resource-acquire local-env qa-environment --run-id run-1 && {{PKG}}/scripts/run_lock.sh resource-release local-env qa-environment --run-id run-1"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"result\":\"acquired\"",
+          "\"result\":\"released\""
+        ],
+        "path_absent": [
+          "{{TMP}}/state/locks/resource-local-env/qa-environment.lock"
+        ]
+      }
+    },
+    {
+      "id": "paths-a-separator-in-a-lock-key-is-rejected",
+      "family": "paths",
+      "description": "A path separator in a lock key is rejected instead of escaping the state layout.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "acquire",
+        "manual-qa",
+        "own-er/re-po"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "path separator"
+        ]
+      }
+    },
+    {
+      "id": "identity-list-reports-authenticated-logins",
+      "family": "identity",
+      "description": "Identity listing reports every authenticated login from the CLI's own account list without contacting GitHub.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com\n  Logged in to github.com account first-login (keyring)\n  Logged in to github.com account second-login (keyring)"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "list"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"authenticated\":",
+          "first-login",
+          "second-login"
+        ]
+      }
+    },
+    {
+      "id": "locking-a-free-heavy-slot-is-acquired",
+      "family": "locking",
+      "description": "The heavy-task semaphore hands a free slot to the first acquirer and reports the shared capacity of two.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "sem-acquire",
+        "heavy",
+        "local",
+        "--run-id",
+        "run-one"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"result\":\"acquired\"",
+          "\"semaphore\":\"heavy\"",
+          "\"capacity\":2"
+        ]
+      }
+    },
+    {
+      "id": "locking-a-full-heavy-queue-turns-away-a-third-run",
+      "family": "locking",
+      "description": "With both heavy slots held by live runs, a third acquirer queues; at its wait limit it reports exhausted and exits 3 rather than starting a third heavy task.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state",
+          "TEAM_SKILLS_SEM_WAIT": "0"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/state/locks/sem-heavy/local/slot-1.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"sem-heavy\",\"key\":\"local\",\"run_id\":\"heavy-one\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}",
+            "{{TMP}}/state/locks/sem-heavy/local/slot-2.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"sem-heavy\",\"key\":\"local\",\"run_id\":\"heavy-two\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "sem-acquire",
+        "heavy",
+        "local",
+        "--run-id",
+        "run-three"
+      ],
+      "expect": {
+        "exit_code": 3,
+        "stdout_matches": [
+          "\"result\":\"exhausted\"",
+          "\"capacity\":2"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "$comment": "shared-component: inventory-v1.json v1 sha256=580b53acf3dbbf2cce47111316f27a6d96f8d7551655bfe45dd93264723a67da",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Clean Memory inventory, version 1",
+  "description": "Read-only classified inventory emitted by inventory.sh. Every item defaults to protected.",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "project", "state_root", "groups", "awareness"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1, "maximum": 1 },
+    "generated_at": { "type": "string" },
+    "project": { "type": ["string", "null"] },
+    "state_root": { "type": "string" },
+    "awareness": {
+      "type": "object",
+      "required": ["registry_covers", "note"],
+      "additionalProperties": false,
+      "properties": {
+        "registry_covers": { "type": "array", "items": { "type": "string" } },
+        "note": { "type": "string" }
+      }
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "status", "items"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "enum": [
+              "skill-worktrees", "git-artifacts", "kubernetes", "container-images",
+              "dependencies", "skill-state", "processes"
+            ]
+          },
+          "title": { "type": "string" },
+          "status": { "enum": ["inventoried", "skipped"] },
+          "skipped_reason": { "type": ["string", "null"] },
+          "reclaimable_bytes": { "type": ["integer", "null"], "minimum": 0 },
+          "protected_bytes": { "type": ["integer", "null"], "minimum": 0 },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "classification", "protected"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "path": { "type": ["string", "null"] },
+                "resource": { "type": ["string", "null"] },
+                "size_bytes": { "type": ["integer", "null"], "minimum": 0 },
+                "size_measured": { "type": "boolean" },
+                "count": { "type": ["integer", "null"], "minimum": 0 },
+                "owner_skill": { "type": ["string", "null"] },
+                "owner_run_id": { "type": ["string", "null"] },
+                "owner_target": { "type": ["string", "null"] },
+                "last_seen": { "type": ["string", "null"] },
+                "classification": { "enum": ["in use", "holds work", "stale", "orphan", "unknown"] },
+                "protected": { "type": "boolean" },
+                "reason": { "type": "string" },
+                "holds": { "type": ["string", "null"] },
+                "handoff_skill": { "type": ["string", "null"] },
+                "command": { "type": ["string", "null"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reclaimable_bytes": { "type": "integer", "minimum": 0 },
+        "protected_bytes": { "type": "integer", "minimum": 0 },
+        "unmeasured_items": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

@@ -1,0 +1,350 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "locking-with-refreshes-a-long-child-then-stops",
+      "family": "locking",
+      "description": "A command that outlives half the time-to-live keeps its lease alive, and refreshing stops when the child exits.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state",
+          "TEAM_SKILLS_HEARTBEAT_INTERVAL": "2"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/state/locks/clean-memory/own-er-re-po-repo.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"clean-memory\",\"key\":\"own-er-re-po-repo\",\"run_id\":\"long-run\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}"
+          }
+        }
+      },
+      "invoke": [
+        "bash",
+        "-c",
+        "f={{TMP}}/state/locks/clean-memory/own-er-re-po-repo.lock/lease.json; b=$(jq -r .heartbeat \"$f\"); {{PKG}}/scripts/run_lock.sh with clean-memory own-er-re-po-repo -- sleep 6 >/dev/null; a=$(jq -r .heartbeat \"$f\"); if [ \"$a\" -gt \"$b\" ]; then echo refreshed; fi; sleep 5; c=$(jq -r .heartbeat \"$f\"); if [ \"$c\" = \"$a\" ]; then echo stopped; fi"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "refreshed",
+          "stopped"
+        ]
+      }
+    },
+    {
+      "id": "locking-live-lock-blocks-a-second-run",
+      "family": "locking",
+      "description": "A lock held by a live run stops a second run on the same target.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/state/locks/clean-memory/own-er-re-po-repo.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"clean-memory\",\"key\":\"own-er-re-po-repo\",\"run_id\":\"already-running\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "acquire",
+        "clean-memory",
+        "own-er-re-po-repo"
+      ],
+      "expect": {
+        "exit_code": 3,
+        "stdout_matches": [
+          "\"result\":\"held\"",
+          "already-running"
+        ]
+      }
+    },
+    {
+      "id": "paths-refuses-a-symlinked-state-root",
+      "family": "paths",
+      "description": "A symlinked state root is refused rather than followed.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/link"
+        },
+        "fs": {
+          "dirs": [
+            "{{TMP}}/real"
+          ],
+          "symlinks": {
+            "{{TMP}}/link": "{{TMP}}/real"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "list"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "symlinked state path"
+        ]
+      }
+    },
+    {
+      "id": "state-refuses-an-unknown-newer-schema-version",
+      "family": "state",
+      "description": "A persisted document from a newer schema is refused rather than guessed at, and is left untouched.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/state/runs/clean-memory/own-er-re-po-repo.json": "{\"schema_version\":2,\"kind\":\"run\",\"skill\":\"clean-memory\",\"key\":\"own-er-re-po-repo\",\"run_id\":\"future\"}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "remove",
+        "clean-memory",
+        "own-er-re-po-repo",
+        "--run-id",
+        "future"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "schema_version 2"
+        ],
+        "path_exists": [
+          "{{TMP}}/state/runs/clean-memory/own-er-re-po-repo.json"
+        ]
+      }
+    },
+    {
+      "id": "inventory-is-read-only-and-protects-a-live-run",
+      "family": "inventory",
+      "description": "The inventory mutates nothing and reports a live run's worktree as in use rather than as a candidate.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "dirs": [
+            "{{TMP}}/project",
+            "{{TMP}}/state/worktrees/watch-and-fix/own-er-re-po-pr4"
+          ],
+          "files": {
+            "{{TMP}}/project/keep.txt": "this file must not change\n",
+            "{{TMP}}/state/locks/watch-and-fix/own-er-re-po-pr4.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"watch-and-fix\",\"key\":\"own-er-re-po-pr4\",\"run_id\":\"live-run\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}",
+            "{{TMP}}/state/runs/watch-and-fix/own-er-re-po-pr4.json": "{\"schema_version\":1,\"kind\":\"run\",\"skill\":\"watch-and-fix\",\"key\":\"own-er-re-po-pr4\",\"run_id\":\"live-run\",\"target\":{\"owner\":\"own-er\",\"repository\":\"re-po\",\"kind\":\"pr\",\"number\":4},\"worktree\":\"{{TMP}}/state/worktrees/watch-and-fix/own-er-re-po-pr4\",\"clone\":null,\"mode\":\"editable\",\"branch\":\"feat/4\",\"head_sha\":null,\"base_sha\":null,\"started_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900,\"pid\":null,\"state\":\"active\",\"artifact_globs\":[],\"meta\":{}}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/inventory.sh",
+        "--project",
+        "{{TMP}}/project"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "fs_unchanged": true,
+        "stdout_matches": [
+          "\"schema_version\":1",
+          "\"classification\":\"in use\"",
+          "\"owner_skill\":\"watch-and-fix\"",
+          "registry"
+        ],
+        "stdout_not_matches": [
+          "\"classification\":\"stale\""
+        ]
+      }
+    },
+    {
+      "id": "inventory-unsaved-work-is-protected-and-routed-back",
+      "family": "inventory",
+      "description": "A retained worktree is reported as holding work, is never offered for deletion, and points at the skill that owns it.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "dirs": [
+            "{{TMP}}/project",
+            "{{TMP}}/state/worktrees/implement/own-er-re-po-issue8"
+          ],
+          "files": {
+            "{{TMP}}/state/runs/implement/own-er-re-po-issue8.json": "{\"schema_version\":1,\"kind\":\"run\",\"skill\":\"implement\",\"key\":\"own-er-re-po-issue8\",\"run_id\":\"stopped-run\",\"target\":{\"owner\":\"own-er\",\"repository\":\"re-po\",\"kind\":\"issue\",\"number\":8},\"worktree\":\"{{TMP}}/state/worktrees/implement/own-er-re-po-issue8\",\"clone\":null,\"mode\":\"editable\",\"branch\":\"feat/8\",\"head_sha\":null,\"base_sha\":null,\"started_at\":{{PAST}},\"heartbeat\":{{PAST}},\"ttl\":900,\"pid\":null,\"state\":\"retained\",\"artifact_globs\":[],\"meta\":{}}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/inventory.sh",
+        "--project",
+        "{{TMP}}/project"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"classification\":\"holds work\"",
+          "\"protected\":true",
+          "\"handoff_skill\":\"implement\""
+        ]
+      }
+    },
+    {
+      "id": "inventory-expired-lease-held-by-a-process-is-unknown",
+      "family": "inventory",
+      "description": "Expiry alone is not abandonment: a running process holding the path forces unknown, which is protected.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "dirs": [
+            "{{TMP}}/project"
+          ],
+          "files": {
+            "{{TMP}}/state/runs/implement/own-er-re-po-issue9.json": "{\"schema_version\":1,\"kind\":\"run\",\"skill\":\"implement\",\"key\":\"own-er-re-po-issue9\",\"run_id\":\"quiet-run\",\"target\":{\"owner\":\"own-er\",\"repository\":\"re-po\",\"kind\":\"issue\",\"number\":9},\"worktree\":\"{{TMP}}/state/worktrees/implement/own-er-re-po-issue9\",\"clone\":null,\"mode\":\"disposable-verification\",\"branch\":null,\"head_sha\":null,\"base_sha\":null,\"started_at\":{{PAST}},\"heartbeat\":{{PAST}},\"ttl\":900,\"pid\":null,\"state\":\"active\",\"artifact_globs\":[],\"meta\":{}}"
+          }
+        }
+      },
+      "invoke": [
+        "bash",
+        "-c",
+        "d={{TMP}}/state/worktrees/implement/own-er-re-po-issue9; mkdir -p \"$d\"; git init -q \"$d\"; ( cd \"$d\" && exec sleep 25 ) & p=$!; sleep 1; {{PKG}}/scripts/inventory.sh --project {{TMP}}/project | jq -r '[.groups[] | select(.id==\"skill-worktrees\") | .items[] | \"\\(.classification)/\\(.protected)\"] | join(\" \")'; kill $p 2>/dev/null; wait $p 2>/dev/null || true"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "unknown/true"
+        ],
+        "stdout_not_matches": [
+          "stale/false"
+        ]
+      }
+    },
+    {
+      "id": "inventory-reclaim-refuses-a-protected-item",
+      "family": "inventory",
+      "description": "reclaim.sh refuses an item the inventory classified protected, even when named explicitly.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "dirs": [
+            "{{TMP}}/project",
+            "{{TMP}}/state/worktrees/watch-and-fix/own-er-re-po-pr4"
+          ],
+          "files": {
+            "{{TMP}}/state/locks/watch-and-fix/own-er-re-po-pr4.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"watch-and-fix\",\"key\":\"own-er-re-po-pr4\",\"run_id\":\"live-run\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}",
+            "{{TMP}}/state/runs/watch-and-fix/own-er-re-po-pr4.json": "{\"schema_version\":1,\"kind\":\"run\",\"skill\":\"watch-and-fix\",\"key\":\"own-er-re-po-pr4\",\"run_id\":\"live-run\",\"target\":{\"owner\":\"own-er\",\"repository\":\"re-po\",\"kind\":\"pr\",\"number\":4},\"worktree\":\"{{TMP}}/state/worktrees/watch-and-fix/own-er-re-po-pr4\",\"clone\":null,\"mode\":\"editable\",\"branch\":\"feat/4\",\"head_sha\":null,\"base_sha\":null,\"started_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900,\"pid\":null,\"state\":\"active\",\"artifact_globs\":[],\"meta\":{}}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/reclaim.sh",
+        "--item",
+        "worktree:{{TMP}}/state/worktrees/watch-and-fix/own-er-re-po-pr4",
+        "--project",
+        "{{TMP}}/project"
+      ],
+      "expect": {
+        "exit_code": 1,
+        "stderr_matches": [
+          "is protected"
+        ],
+        "path_exists": [
+          "{{TMP}}/state/worktrees/watch-and-fix/own-er-re-po-pr4"
+        ]
+      }
+    },
+    {
+      "id": "inventory-reclaim-refuses-an-item-outside-the-inventory",
+      "family": "inventory",
+      "description": "A path the inventory never classified — including one outside the state layout and the named project — is refused rather than removed.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "dirs": [
+            "{{TMP}}/project",
+            "{{TMP}}/elsewhere"
+          ]
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/reclaim.sh",
+        "--item",
+        "dependency:{{TMP}}/elsewhere",
+        "--project",
+        "{{TMP}}/project"
+      ],
+      "expect": {
+        "exit_code": 1,
+        "stderr_matches": [
+          "not in the current inventory"
+        ],
+        "path_exists": [
+          "{{TMP}}/elsewhere"
+        ]
+      }
+    },
+    {
+      "id": "locking-a-free-heavy-slot-is-acquired",
+      "family": "locking",
+      "description": "The heavy-task semaphore hands a free slot to the first acquirer and reports the shared capacity of two.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "sem-acquire",
+        "heavy",
+        "local",
+        "--run-id",
+        "run-one"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"result\":\"acquired\"",
+          "\"semaphore\":\"heavy\"",
+          "\"capacity\":2"
+        ]
+      }
+    },
+    {
+      "id": "locking-a-full-heavy-queue-turns-away-a-third-run",
+      "family": "locking",
+      "description": "With both heavy slots held by live runs, a third acquirer queues; at its wait limit it reports exhausted and exits 3 rather than starting a third heavy task.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state",
+          "TEAM_SKILLS_SEM_WAIT": "0"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/state/locks/sem-heavy/local/slot-1.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"sem-heavy\",\"key\":\"local\",\"run_id\":\"heavy-one\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}",
+            "{{TMP}}/state/locks/sem-heavy/local/slot-2.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"sem-heavy\",\"key\":\"local\",\"run_id\":\"heavy-two\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "sem-acquire",
+        "heavy",
+        "local",
+        "--run-id",
+        "run-three"
+      ],
+      "expect": {
+        "exit_code": 3,
+        "stdout_matches": [
+          "\"result\":\"exhausted\"",
+          "\"capacity\":2"
+        ]
+      }
+    }
+  ]
+}

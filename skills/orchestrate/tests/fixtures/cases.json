@@ -1,0 +1,1197 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "locking-free-lock-is-acquired",
+      "family": "locking",
+      "description": "A free target lock is taken and the run is registered.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "acquire",
+        "pr-fix",
+        "own-er-re-po-issue1"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"result\":\"acquired\"",
+          "\"run_id\":"
+        ],
+        "path_exists": [
+          "{{TMP}}/state/runs/pr-fix/own-er-re-po-issue1.json"
+        ]
+      }
+    },
+    {
+      "id": "locking-live-lock-blocks-a-second-run",
+      "family": "locking",
+      "description": "A lock held by a live run stops a second run on the same target instead of producing two writers.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/state/locks/pr-fix/own-er-re-po-issue1.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"pr-fix\",\"key\":\"own-er-re-po-issue1\",\"run_id\":\"already-running\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "acquire",
+        "pr-fix",
+        "own-er-re-po-issue1"
+      ],
+      "expect": {
+        "exit_code": 3,
+        "stdout_matches": [
+          "\"result\":\"held\"",
+          "already-running"
+        ]
+      }
+    },
+    {
+      "id": "locking-stale-lease-is-taken-over-not-deleted",
+      "family": "locking",
+      "description": "A lease past its time-to-live is taken over; the previous run's registry entry is reused rather than discarded.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/state/locks/pr-fix/own-er-re-po-issue1.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"pr-fix\",\"key\":\"own-er-re-po-issue1\",\"run_id\":\"dead-run\",\"pid\":null,\"acquired_at\":{{PAST}},\"heartbeat\":{{PAST}},\"ttl\":900}",
+            "{{TMP}}/state/runs/pr-fix/own-er-re-po-issue1.json": "{\"schema_version\":1,\"kind\":\"run\",\"skill\":\"pr-fix\",\"key\":\"own-er-re-po-issue1\",\"run_id\":\"dead-run\",\"target\":{\"owner\":\"own-er\",\"repository\":\"re-po\",\"kind\":\"issue\",\"number\":1},\"worktree\":\"{{TMP}}/state/worktrees/pr-fix/own-er-re-po-issue1\",\"clone\":null,\"mode\":\"editable\",\"branch\":\"feat/1\",\"head_sha\":null,\"base_sha\":null,\"started_at\":{{PAST}},\"heartbeat\":{{PAST}},\"ttl\":900,\"pid\":null,\"state\":\"active\",\"artifact_globs\":[],\"meta\":{}}"
+          }
+        }
+      },
+      "invoke": [
+        "bash",
+        "-c",
+        "{{PKG}}/scripts/run_lock.sh acquire pr-fix own-er-re-po-issue1 && jq -r '.worktree' {{TMP}}/state/runs/pr-fix/own-er-re-po-issue1.json"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"result\":\"takeover\"",
+          "worktrees/pr-fix/own-er-re-po-issue1"
+        ]
+      }
+    },
+    {
+      "id": "locking-registry-records-the-checkout-mode",
+      "family": "state",
+      "description": "Checkout mode travels into the registry so safe-removal rules can be applied later.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "bash",
+        "-c",
+        "{{PKG}}/scripts/run_lock.sh acquire pr-fix own-er-re-po-issue2 --meta '{\"mode\":\"disposable-verification\"}' >/dev/null && jq -r '.mode' {{TMP}}/state/runs/pr-fix/own-er-re-po-issue2.json"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "^disposable-verification$"
+        ]
+      }
+    },
+    {
+      "id": "state-refuses-an-unknown-newer-schema-version",
+      "family": "state",
+      "description": "A persisted document from a newer schema is refused rather than guessed at, and is left untouched.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/state/runs/pr-fix/own-er-re-po-issue3.json": "{\"schema_version\":2,\"kind\":\"run\",\"skill\":\"pr-fix\",\"key\":\"own-er-re-po-issue3\",\"run_id\":\"future\"}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "remove",
+        "pr-fix",
+        "own-er-re-po-issue3",
+        "--run-id",
+        "future"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "schema_version 2",
+          "refusing to interpret"
+        ],
+        "path_exists": [
+          "{{TMP}}/state/runs/pr-fix/own-er-re-po-issue3.json"
+        ]
+      }
+    },
+    {
+      "id": "paths-worktree-path-is-derived-from-skill-and-target",
+      "family": "paths",
+      "description": "Two runs on different targets, and two skills on one target, can never share a worktree path.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "path",
+        "pr-fix",
+        "own-er",
+        "re-po",
+        "issue",
+        "12"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "worktrees/pr-fix/own-er-re-po-issue12$"
+        ]
+      }
+    },
+    {
+      "id": "paths-rejects-a-parent-reference",
+      "family": "paths",
+      "description": "A parent reference in a target component is rejected instead of escaping the state layout.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "path",
+        "pr-fix",
+        "..",
+        "re-po",
+        "issue",
+        "12"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "invalid owner"
+        ]
+      }
+    },
+    {
+      "id": "paths-rejects-a-separator-in-a-lock-key",
+      "family": "paths",
+      "description": "A path separator in a lock key is rejected.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "acquire",
+        "pr-fix",
+        "own-er/re-po"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "path separator"
+        ]
+      }
+    },
+    {
+      "id": "paths-refuses-a-symlinked-state-root",
+      "family": "paths",
+      "description": "A symlinked state root is refused rather than followed.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/link"
+        },
+        "fs": {
+          "dirs": [
+            "{{TMP}}/real"
+          ],
+          "symlinks": {
+            "{{TMP}}/link": "{{TMP}}/real"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "status",
+        "pr-fix",
+        "own-er-re-po-issue1"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "symlinked state path"
+        ]
+      }
+    },
+    {
+      "id": "identity-probes-logins-without-asking-the-user",
+      "family": "identity",
+      "description": "Identity selection probes the authenticated accounts and never interrupts the workflow to ask which to use.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com\n  Logged in to github.com account first-login (keyring)\n  Logged in to github.com account second-login (keyring)",
+          "auth token --user": "token-$MOCK_LAST_ARG",
+          "api user": "$GH_TOKEN_SUFFIX",
+          "api repos/": "{\"archived\":false,\"locked\":false,\"permissions\":{\"push\":true,\"pull\":true}}"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "select",
+        "--need",
+        "write",
+        "own-er/re-po#5"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"login\":\"first-login\"",
+          "capability probing"
+        ],
+        "path_exists": [
+          "{{TMP}}/state/config/identities.json"
+        ]
+      }
+    },
+    {
+      "id": "identity-does-not-save-a-login-that-failed-its-probe",
+      "family": "identity",
+      "description": "When no authenticated account satisfies the capability, every attempted login is reported and nothing is saved.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com\n  Logged in to github.com account first-login (keyring)\n  Logged in to github.com account second-login (keyring)",
+          "auth token --user": "token-$MOCK_LAST_ARG",
+          "api user": "$GH_TOKEN_SUFFIX",
+          "api repos/": "{\"archived\":false,\"locked\":false,\"permissions\":{\"push\":false,\"pull\":true}}"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "select",
+        "--need",
+        "write",
+        "own-er/re-po#5"
+      ],
+      "expect": {
+        "exit_code": 1,
+        "stderr_matches": [
+          "no authenticated account satisfies",
+          "first-login",
+          "second-login"
+        ],
+        "path_absent": [
+          "{{TMP}}/state/config/identities.json"
+        ]
+      }
+    },
+    {
+      "id": "identity-accepts-hyphenated-owner-and-repository-names",
+      "family": "identity",
+      "description": "Hyphenated owners and repository names parse correctly and are not split on the hyphen.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "get",
+        "own-er/re-po#42"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"target\":\"own-er/re-po#42\""
+        ]
+      }
+    },
+    {
+      "id": "identity-refuses-a-group-writable-configuration-path",
+      "family": "identity",
+      "description": "Saved identities never live in a directory another account can write.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "fs": {
+          "dirs": [
+            "{{TMP}}/state/config"
+          ],
+          "modes": {
+            "{{TMP}}/state/config": "770"
+          }
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "get",
+        "own-er/re-po#42"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "group- or world-writable"
+        ]
+      }
+    },
+    {
+      "id": "push-refuses-a-non-canonical-remote-url",
+      "family": "push",
+      "description": "Only the canonical https URL for the named repository is accepted; another host cannot receive the token.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "git-push",
+        "own-er/re-po#5",
+        "--repo",
+        "own-er/re-po",
+        "--remote-url",
+        "https://example.invalid/own-er/re-po.git",
+        "--source",
+        "HEAD",
+        "--dest",
+        "refs/heads/feat"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "canonical https URL"
+        ]
+      }
+    },
+    {
+      "id": "push-refuses-a-destination-outside-branch-refs",
+      "family": "push",
+      "description": "A destination outside refs/heads/ is refused, so a tag or arbitrary ref cannot be written.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "git-push",
+        "own-er/re-po#5",
+        "--repo",
+        "own-er/re-po",
+        "--remote-url",
+        "https://github.com/own-er/re-po.git",
+        "--source",
+        "HEAD",
+        "--dest",
+        "refs/tags/v1"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "refs/heads/"
+        ]
+      }
+    },
+    {
+      "id": "push-refuses-multiple-destinations",
+      "family": "push",
+      "description": "One push writes exactly one branch ref.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "git-push",
+        "own-er/re-po#5",
+        "--repo",
+        "own-er/re-po",
+        "--remote-url",
+        "https://github.com/own-er/re-po.git",
+        "--source",
+        "HEAD",
+        "--dest",
+        "refs/heads/a refs/heads/b"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "exactly one branch ref"
+        ]
+      }
+    },
+    {
+      "id": "push-refuses-a-short-force-with-lease-sha",
+      "family": "push",
+      "description": "A lease must name the exact previously observed full SHA, so a partial value cannot weaken it.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "git-push",
+        "own-er/re-po#5",
+        "--repo",
+        "own-er/re-po",
+        "--remote-url",
+        "https://github.com/own-er/re-po.git",
+        "--source",
+        "HEAD",
+        "--dest",
+        "refs/heads/feat",
+        "--force-with-lease",
+        "abc123"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "40-character SHA"
+        ]
+      }
+    },
+    {
+      "id": "push-refuses-malicious-url-rewrites",
+      "family": "push",
+      "description": "Configured url insteadOf rewrites could redirect the credentialed push, so the push fails closed.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state",
+          "HOME": "{{TMP}}/evil-home"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/evil-home/.gitconfig": "[url \"https://example.invalid/\"]\n\tinsteadOf = https://github.com/\n"
+          }
+        },
+        "gh": {
+          "auth status": "github.com"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/gh_identity.sh",
+        "git-push",
+        "own-er/re-po#5",
+        "--repo",
+        "own-er/re-po",
+        "--remote-url",
+        "https://github.com/own-er/re-po.git",
+        "--source",
+        "HEAD",
+        "--dest",
+        "refs/heads/feat"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "insteadOf"
+        ]
+      }
+    },
+    {
+      "id": "state-lane-plan-defaults-to-this-runtime",
+      "family": "state",
+      "description": "With no profile installed, every stage runs on this runtime — inline where the user is, sub-agents for the rest — and the plan says so rather than naming a runtime the package does not know.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {}
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "resolve",
+        "--runtime",
+        "Fixture Runtime 1.0"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"source\":\"default\"",
+          "\"create-clarity\":\\{\"lane\":\"inline\"",
+          "\"pr-review\":\\{\"lane\":\"agent\""
+        ],
+        "stdout_not_matches": [
+          "\"model\":\"[a-z]"
+        ]
+      }
+    },
+    {
+      "id": "state-lane-profile-matches-a-runtime-by-label",
+      "family": "state",
+      "description": "A runtime entry is chosen by case-insensitive substring of the label this runtime exposes, and its cli lane and model survive resolution.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/state/config/orchestrate.json": "{\n  \"schema_version\": 1,\n  \"runtimes\": {\n    \"mine\": {\n      \"match\": [\n        \"fixture runtime\"\n      ],\n      \"stages\": {\n        \"pr-review\": {\n          \"lane\": \"cli:OTHER\",\n          \"model\": null,\n          \"effort\": null\n        },\n        \"pr-fix\": {\n          \"lane\": \"agent\",\n          \"model\": \"a-model\",\n          \"effort\": \"high\"\n        }\n      }\n    },\n    \"default\": {\n      \"stages\": {}\n    }\n  },\n  \"cli\": {\n    \"OTHER\": {\n      \"command\": [\n        \"a-runtime-that-does-not-exist\",\n        \"--model\",\n        \"{model}\",\n        \"--cwd\",\n        \"{cwd}\"\n      ],\n      \"runtime_label\": \"Other Fixture Runtime\",\n      \"github_login\": null,\n      \"skills_roots\": [\n        \"{home}/other-skills\"\n      ]\n    }\n  }\n}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "resolve",
+        "--runtime",
+        "A Fixture Runtime, build 9"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"source\":\"profile\"",
+          "\"matched_runtime\":\"mine\"",
+          "\"lane\":\"cli:OTHER\"",
+          "\"model\":\"a-model\""
+        ]
+      }
+    },
+    {
+      "id": "state-lane-profile-falls-back-to-the-default-entry",
+      "family": "state",
+      "description": "An unrecognized runtime takes the default entry rather than the first one that happens to be listed.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/state/config/orchestrate.json": "{\n  \"schema_version\": 1,\n  \"runtimes\": {\n    \"mine\": {\n      \"match\": [\n        \"fixture runtime\"\n      ],\n      \"stages\": {\n        \"pr-review\": {\n          \"lane\": \"cli:OTHER\",\n          \"model\": null,\n          \"effort\": null\n        },\n        \"pr-fix\": {\n          \"lane\": \"agent\",\n          \"model\": \"a-model\",\n          \"effort\": \"high\"\n        }\n      }\n    },\n    \"default\": {\n      \"stages\": {}\n    }\n  },\n  \"cli\": {\n    \"OTHER\": {\n      \"command\": [\n        \"a-runtime-that-does-not-exist\",\n        \"--model\",\n        \"{model}\",\n        \"--cwd\",\n        \"{cwd}\"\n      ],\n      \"runtime_label\": \"Other Fixture Runtime\",\n      \"github_login\": null,\n      \"skills_roots\": [\n        \"{home}/other-skills\"\n      ]\n    }\n  }\n}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "resolve",
+        "--runtime",
+        "Something Else Entirely"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"matched_runtime\":\"default\"",
+          "\"pr-review\":\\{\"lane\":\"agent\""
+        ]
+      }
+    },
+    {
+      "id": "state-lane-profile-drops-an-unfilled-placeholder-with-its-flag",
+      "family": "state",
+      "description": "A stage with no model must not hand the other runtime a bare --model, so the placeholder and the flag before it are dropped together. --check-commands reports the missing executable instead of running it.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/state/config/orchestrate.json": "{\n  \"schema_version\": 1,\n  \"runtimes\": {\n    \"mine\": {\n      \"match\": [\n        \"fixture runtime\"\n      ],\n      \"stages\": {\n        \"pr-review\": {\n          \"lane\": \"cli:OTHER\",\n          \"model\": null,\n          \"effort\": null\n        },\n        \"pr-fix\": {\n          \"lane\": \"agent\",\n          \"model\": \"a-model\",\n          \"effort\": \"high\"\n        }\n      }\n    },\n    \"default\": {\n      \"stages\": {}\n    }\n  },\n  \"cli\": {\n    \"OTHER\": {\n      \"command\": [\n        \"a-runtime-that-does-not-exist\",\n        \"--model\",\n        \"{model}\",\n        \"--cwd\",\n        \"{cwd}\"\n      ],\n      \"runtime_label\": \"Other Fixture Runtime\",\n      \"github_login\": null,\n      \"skills_roots\": [\n        \"{home}/other-skills\"\n      ]\n    }\n  }\n}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "resolve",
+        "--runtime",
+        "Fixture Runtime",
+        "--cwd",
+        "{home}/work",
+        "--check-commands"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"command\":\\[\"a-runtime-that-does-not-exist\",\"--cwd\",\"[^\"]*/work\"\\]",
+          "\"executable_present\":false"
+        ]
+      }
+    },
+    {
+      "id": "state-lane-profile-refuses-a-newer-schema",
+      "family": "state",
+      "description": "A profile written for a later version is refused, not guessed past.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/profile.json": "{\n  \"schema_version\": 99,\n  \"runtimes\": {\n    \"mine\": {\n      \"match\": [\n        \"fixture runtime\"\n      ],\n      \"stages\": {\n        \"pr-review\": {\n          \"lane\": \"cli:OTHER\",\n          \"model\": null,\n          \"effort\": null\n        },\n        \"pr-fix\": {\n          \"lane\": \"agent\",\n          \"model\": \"a-model\",\n          \"effort\": \"high\"\n        }\n      }\n    },\n    \"default\": {\n      \"stages\": {}\n    }\n  },\n  \"cli\": {\n    \"OTHER\": {\n      \"command\": [\n        \"a-runtime-that-does-not-exist\",\n        \"--model\",\n        \"{model}\",\n        \"--cwd\",\n        \"{cwd}\"\n      ],\n      \"runtime_label\": \"Other Fixture Runtime\",\n      \"github_login\": null,\n      \"skills_roots\": [\n        \"{home}/other-skills\"\n      ]\n    }\n  }\n}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "validate",
+        "--profile",
+        "{{TMP}}/profile.json"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "newer than this script understands"
+        ]
+      }
+    },
+    {
+      "id": "state-lane-profile-refuses-an-unknown-stage",
+      "family": "state",
+      "description": "A stage name outside the five life-cycle skills is a typo, and a typo that resolved silently would drop a stage from the plan.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/profile.json": "{\n  \"schema_version\": 1,\n  \"runtimes\": {\n    \"mine\": {\n      \"match\": [\n        \"fixture runtime\"\n      ],\n      \"stages\": {\n        \"pr-review\": {\n          \"lane\": \"cli:OTHER\",\n          \"model\": null,\n          \"effort\": null\n        },\n        \"pr-fix\": {\n          \"lane\": \"agent\",\n          \"model\": \"a-model\",\n          \"effort\": \"high\"\n        },\n        \"not-a-stage\": {\n          \"lane\": \"agent\"\n        }\n      }\n    },\n    \"default\": {\n      \"stages\": {}\n    }\n  },\n  \"cli\": {\n    \"OTHER\": {\n      \"command\": [\n        \"a-runtime-that-does-not-exist\",\n        \"--model\",\n        \"{model}\",\n        \"--cwd\",\n        \"{cwd}\"\n      ],\n      \"runtime_label\": \"Other Fixture Runtime\",\n      \"github_login\": null,\n      \"skills_roots\": [\n        \"{home}/other-skills\"\n      ]\n    }\n  }\n}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "validate",
+        "--profile",
+        "{{TMP}}/profile.json"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "unknown stage"
+        ]
+      }
+    },
+    {
+      "id": "state-lane-profile-refuses-an-undefined-cli-reference",
+      "family": "state",
+      "description": "A cli lane that names no defined entry cannot be launched, so it is refused at read time rather than at launch time.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/profile.json": "{\n  \"schema_version\": 1,\n  \"runtimes\": {\n    \"mine\": {\n      \"match\": [\n        \"fixture runtime\"\n      ],\n      \"stages\": {\n        \"pr-review\": {\n          \"lane\": \"cli:OTHER\",\n          \"model\": null,\n          \"effort\": null\n        },\n        \"pr-fix\": {\n          \"lane\": \"agent\",\n          \"model\": \"a-model\",\n          \"effort\": \"high\"\n        },\n        \"manual-qa\": {\n          \"lane\": \"cli:NOWHERE\"\n        }\n      }\n    },\n    \"default\": {\n      \"stages\": {}\n    }\n  },\n  \"cli\": {\n    \"OTHER\": {\n      \"command\": [\n        \"a-runtime-that-does-not-exist\",\n        \"--model\",\n        \"{model}\",\n        \"--cwd\",\n        \"{cwd}\"\n      ],\n      \"runtime_label\": \"Other Fixture Runtime\",\n      \"github_login\": null,\n      \"skills_roots\": [\n        \"{home}/other-skills\"\n      ]\n    }\n  }\n}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "validate",
+        "--profile",
+        "{{TMP}}/profile.json"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "undefined cli entry"
+        ]
+      }
+    },
+    {
+      "id": "state-lane-profile-refuses-a-malformed-command",
+      "family": "state",
+      "description": "A command that is not a non-empty array of strings is refused rather than assembled into something arbitrary.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/profile.json": "{\n  \"schema_version\": 1,\n  \"runtimes\": {\n    \"mine\": {\n      \"match\": [\n        \"fixture runtime\"\n      ],\n      \"stages\": {\n        \"pr-review\": {\n          \"lane\": \"cli:OTHER\",\n          \"model\": null,\n          \"effort\": null\n        },\n        \"pr-fix\": {\n          \"lane\": \"agent\",\n          \"model\": \"a-model\",\n          \"effort\": \"high\"\n        }\n      }\n    },\n    \"default\": {\n      \"stages\": {}\n    }\n  },\n  \"cli\": {\n    \"OTHER\": {\n      \"command\": [],\n      \"runtime_label\": \"Other Fixture Runtime\",\n      \"github_login\": null,\n      \"skills_roots\": [\n        \"{home}/other-skills\"\n      ]\n    }\n  }\n}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "validate",
+        "--profile",
+        "{{TMP}}/profile.json"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "no usable command array"
+        ]
+      }
+    },
+    {
+      "id": "state-lane-profile-example-validates",
+      "family": "state",
+      "description": "The placeholder example the installer offers is itself a valid profile, so a user who edits it starts from something that passes.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {}
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "example"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"schema_version\": 1",
+          "RUNTIME-KEY",
+          "OTHER-RUNTIME"
+        ]
+      }
+    },
+    {
+      "id": "state-lane-plan-carries-no-invocation-mode",
+      "family": "state",
+      "description": "There is one way to invoke a monitoring stage under orchestration — one wake-up pass at a time, with the orchestrator holding the only poller — so the resolved plan carries lanes and models and no mode at all, for any stage.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {}
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "resolve",
+        "--runtime",
+        "Fixture Runtime 1.0"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"pr-review\":\\{\"lane\":\"agent\"",
+          "\"pr-fix\":\\{\"lane\":\"agent\"",
+          "\"manual-qa\":\\{\"lane\":\"agent\""
+        ],
+        "stdout_not_matches": [
+          "\"invocation\""
+        ]
+      }
+    },
+    {
+      "id": "state-lane-profile-refuses-an-invocation-key",
+      "family": "state",
+      "description": "How a stage is invoked is not the profile's to set. A profile that puts a monitoring stage back on its own watcher is refused rather than ignored, because ignoring it would leave the user believing a second poller was attached.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/profile.json": "{\n  \"schema_version\": 1,\n  \"runtimes\": {\n    \"mine\": {\n      \"match\": [\n        \"fixture runtime\"\n      ],\n      \"stages\": {\n        \"pr-fix\": {\n          \"lane\": \"agent\",\n          \"invocation\": \"watch\"\n        }\n      }\n    }\n  }\n}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "validate",
+        "--profile",
+        "{{TMP}}/profile.json"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "takes no invocation mode"
+        ]
+      }
+    },
+    {
+      "id": "state-decision-policy-defaults-to-attended",
+      "family": "state",
+      "description": "With neither a request nor a profile naming one, the run is attended and says so, with its source, so nobody has to infer who will answer a stage's question.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {}
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "resolve",
+        "--runtime",
+        "Fixture Runtime 1.0"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"decision_policy\":\"attended\"",
+          "\"decision_policy_source\":\"default\"",
+          "\"yolo\":null"
+        ]
+      }
+    },
+    {
+      "id": "state-decision-policy-comes-from-the-profile",
+      "family": "state",
+      "description": "A profile's top-level decision_policy is the standing default for the run, and its yolo block travels with it — the one value a yolo run cannot derive for itself.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/state/config/orchestrate.json": "{\"schema_version\":1,\"decision_policy\":\"yolo\",\"yolo\":{\"human_reviewer\":\"PLACEHOLDER-REVIEWER\"},\"runtimes\":{\"mine\":{\"match\":[\"fixture runtime\"],\"stages\":{\"pr-fix\":{\"lane\":\"agent\",\"model\":null,\"effort\":null}}},\"default\":{\"stages\":{}}}}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "resolve",
+        "--runtime",
+        "A Fixture Runtime, build 9"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"decision_policy\":\"yolo\"",
+          "\"decision_policy_source\":\"profile\"",
+          "\"human_reviewer\":\"PLACEHOLDER-REVIEWER\""
+        ]
+      }
+    },
+    {
+      "id": "state-decision-policy-request-overrides-the-profile",
+      "family": "state",
+      "description": "The word in the invocation wins over the profile's standing default, and the source records that a human chose it for this run.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/state/config/orchestrate.json": "{\"schema_version\":1,\"decision_policy\":\"yolo\",\"yolo\":{\"human_reviewer\":\"PLACEHOLDER-REVIEWER\"},\"runtimes\":{\"mine\":{\"match\":[\"fixture runtime\"],\"stages\":{\"pr-fix\":{\"lane\":\"agent\",\"model\":null,\"effort\":null}}},\"default\":{\"stages\":{}}}}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "resolve",
+        "--runtime",
+        "A Fixture Runtime, build 9",
+        "--decision-policy",
+        "attended"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"decision_policy\":\"attended\"",
+          "\"decision_policy_source\":\"request\""
+        ]
+      }
+    },
+    {
+      "id": "state-decision-policy-refuses-an-unknown-value-in-the-profile",
+      "family": "state",
+      "description": "Who answers for the human is a two-valued question. A profile that names a third value is refused rather than read as attended, because guessing it wrong decides every question in the run.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/profile.json": "{\"schema_version\":1,\"decision_policy\":\"sometimes\",\"runtimes\":{\"mine\":{\"match\":[\"fixture runtime\"],\"stages\":{}}}}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "validate",
+        "--profile",
+        "{{TMP}}/profile.json"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "neither .attended. nor .yolo."
+        ]
+      }
+    },
+    {
+      "id": "state-decision-policy-refuses-an-unknown-value-on-the-command-line",
+      "family": "state",
+      "description": "The same refusal applies to the request's word, before any profile is read.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {}
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "resolve",
+        "--runtime",
+        "Fixture Runtime 1.0",
+        "--decision-policy",
+        "sometimes"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "unknown decision policy"
+        ]
+      }
+    },
+    {
+      "id": "state-lane-profile-without-a-policy-validates-as-before",
+      "family": "state",
+      "description": "A profile written before the decision policy existed still validates and still resolves its lanes; it simply runs attended.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/state/config/orchestrate.json": "{\"schema_version\":1,\"runtimes\":{\"mine\":{\"match\":[\"fixture runtime\"],\"stages\":{\"pr-fix\":{\"lane\":\"agent\",\"model\":null,\"effort\":null}}},\"default\":{\"stages\":{}}}}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/lane_profile.sh",
+        "resolve",
+        "--runtime",
+        "A Fixture Runtime, build 9"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"source\":\"profile\"",
+          "\"decision_policy\":\"attended\"",
+          "\"decision_policy_source\":\"default\"",
+          "\"yolo\":null"
+        ]
+      }
+    },
+    {
+      "id": "polling-signals-are-read-from-the-published-markers",
+      "family": "polling",
+      "description": "The classifier turns the stage skills' own markers and literal status lines into signals: code-happy with QA pending, a QA result with its parsed status and tested head, and the Developer's all-green stop.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/snapshot.json": "{\n  \"schema_version\": 1,\n  \"kind\": \"snapshot\",\n  \"captured_at\": \"2026-01-09T00:00:00Z\",\n  \"viewer\": \"a-viewer\",\n  \"pull_request\": {\n    \"repository\": \"own-er/re-po\",\n    \"number\": 7,\n    \"url\": \"https://example.invalid/pr/7\",\n    \"state\": \"OPEN\",\n    \"is_draft\": false,\n    \"head_sha\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n  },\n  \"events\": [\n    {\n      \"id\": \"1\",\n      \"type\": \"comment\",\n      \"author\": \"rev-bot\",\n      \"created_at\": \"2026-01-02T00:00:00Z\",\n      \"body\": \"<!-- watch-and-review -->\\n\\ud83d\\udd34 NO PASS\\n\\ud83d\\udfe2 Code-happy gate passed \\u2014 \\ud83d\\udd34 Manual QA required\"\n    },\n    {\n      \"id\": \"2\",\n      \"type\": \"comment\",\n      \"author\": \"qa-bot\",\n      \"created_at\": \"2026-01-03T00:00:00Z\",\n      \"body\": \"<!-- manual-qa:test-results -->\\nManual QA status: FAIL\\ntested aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n    },\n    {\n      \"id\": \"3\",\n      \"type\": \"comment\",\n      \"author\": \"dev-bot\",\n      \"created_at\": \"2026-01-04T00:00:00Z\",\n      \"body\": \"<!-- watch-and-fix -->\\neverything raised has been addressed; the pull request is all green\"\n    },\n    {\n      \"id\": \"4\",\n      \"type\": \"comment\",\n      \"author\": \"a-human\",\n      \"created_at\": \"2026-01-05T00:00:00Z\",\n      \"body\": \"nice\"\n    }\n  ]\n}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/stage_signal.sh",
+        "classify",
+        "--file",
+        "{home}/snapshot.json",
+        "--reviewer-login",
+        "rev-bot",
+        "--developer-login",
+        "dev-bot",
+        "--qa-login",
+        "qa-bot"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"code_happy_qa_pending\"",
+          "\"status\":\"FAIL\"",
+          "\"matches_current_head\":true",
+          "\"all_green\"",
+          "\"unmarked_events\":1"
+        ]
+      }
+    },
+    {
+      "id": "polling-an-unexpected-actor-is-flagged-not-dropped",
+      "family": "polling",
+      "description": "A readiness line published by someone other than the Reviewer this run launched is still reported, flagged unverified_actor. Routing is the script's job; deciding whose word counts is the orchestrator's.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/snapshot.json": "{\n  \"schema_version\": 1,\n  \"kind\": \"snapshot\",\n  \"captured_at\": \"2026-01-09T00:00:00Z\",\n  \"viewer\": \"a-viewer\",\n  \"pull_request\": {\n    \"repository\": \"own-er/re-po\",\n    \"number\": 7,\n    \"url\": \"https://example.invalid/pr/7\",\n    \"state\": \"OPEN\",\n    \"is_draft\": false,\n    \"head_sha\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n  },\n  \"events\": [\n    {\n      \"id\": \"9\",\n      \"type\": \"comment\",\n      \"author\": \"an-impostor\",\n      \"created_at\": \"2026-01-06T00:00:00Z\",\n      \"body\": \"<!-- watch-and-review -->\\n\\ud83d\\udfe2 PASS \\u2014 Ready for human review\"\n    }\n  ]\n}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/stage_signal.sh",
+        "classify",
+        "--file",
+        "{home}/snapshot.json",
+        "--reviewer-login",
+        "rev-bot"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"pass\"",
+          "\"unverified_actor\":true"
+        ]
+      }
+    },
+    {
+      "id": "polling-the-classifier-rejects-malformed-input",
+      "family": "polling",
+      "description": "A document that is not a versioned snapshot is refused rather than classified as a pull request with no signals.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {},
+        "fs": {
+          "files": {
+            "{{TMP}}/snapshot.json": "{\"not\":\"a snapshot\"}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/stage_signal.sh",
+        "classify",
+        "--file",
+        "{home}/snapshot.json"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "schema_version"
+        ]
+      }
+    },
+    {
+      "id": "polling-refuses-a-malformed-fingerprint-before-any-github-call",
+      "family": "polling",
+      "description": "A baseline no snapshot could have produced is a caller bug. It is refused before a single GitHub call is paid for, rather than reporting every capture as changed.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        },
+        "gh": {}
+      },
+      "invoke": [
+        "{{PKG}}/scripts/poll_pr.sh",
+        "--once",
+        "--if-changed-since",
+        "yesterday",
+        "own-er/re-po#7"
+      ],
+      "expect": {
+        "exit_code": 2,
+        "stderr_matches": [
+          "sha256"
+        ],
+        "stdout_not_matches": [
+          "\"kind\""
+        ]
+      }
+    },
+    {
+      "id": "locking-a-free-heavy-slot-is-acquired",
+      "family": "locking",
+      "description": "The heavy-task semaphore hands a free slot to the first acquirer and reports the shared capacity of two.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state"
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "sem-acquire",
+        "heavy",
+        "local",
+        "--run-id",
+        "run-one"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "stdout_matches": [
+          "\"result\":\"acquired\"",
+          "\"semaphore\":\"heavy\"",
+          "\"capacity\":2"
+        ]
+      }
+    },
+    {
+      "id": "locking-a-full-heavy-queue-turns-away-a-third-run",
+      "family": "locking",
+      "description": "With both heavy slots held by live runs, a third acquirer queues; at its wait limit it reports exhausted and exits 3 rather than starting a third heavy task.",
+      "given": {
+        "env": {
+          "TEAM_SKILLS_STATE_DIR": "{{TMP}}/state",
+          "TEAM_SKILLS_SEM_WAIT": "0"
+        },
+        "fs": {
+          "files": {
+            "{{TMP}}/state/locks/sem-heavy/local/slot-1.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"sem-heavy\",\"key\":\"local\",\"run_id\":\"heavy-one\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}",
+            "{{TMP}}/state/locks/sem-heavy/local/slot-2.lock/lease.json": "{\"schema_version\":1,\"kind\":\"lease\",\"skill\":\"sem-heavy\",\"key\":\"local\",\"run_id\":\"heavy-two\",\"pid\":null,\"acquired_at\":{{NOW}},\"heartbeat\":{{NOW}},\"ttl\":900}"
+          }
+        }
+      },
+      "invoke": [
+        "{{PKG}}/scripts/run_lock.sh",
+        "sem-acquire",
+        "heavy",
+        "local",
+        "--run-id",
+        "run-three"
+      ],
+      "expect": {
+        "exit_code": 3,
+        "stdout_matches": [
+          "\"result\":\"exhausted\"",
+          "\"capacity\":2"
+        ]
+      }
+    }
+  ]
+}

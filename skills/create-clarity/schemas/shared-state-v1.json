@@ -1,0 +1,429 @@
+{
+  "$comment": "shared-component: shared-state-v1.json v5 sha256=99506b033046c7bcc647e9465095a99bd0871f5451df66f72bd79204e3decfde",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Team agent skills shared state, version 1",
+  "description": "Identity, run-registry, lease, and watcher-state records. A document whose schema_version is greater than 1 is rejected rather than interpreted, and is preserved untouched.",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/identities"
+    },
+    {
+      "$ref": "#/definitions/run"
+    },
+    {
+      "$ref": "#/definitions/lease"
+    },
+    {
+      "$ref": "#/definitions/watcher"
+    }
+  ],
+  "definitions": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1
+    },
+    "sha": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "epoch": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "login": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9_]|-(?=[A-Za-z0-9_])){0,254}$"
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "owner",
+        "repository",
+        "kind",
+        "number"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "owner": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "kind": {
+          "enum": [
+            "issue",
+            "pr",
+            "repo"
+          ]
+        },
+        "number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      }
+    },
+    "identities": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "kind",
+        "targets"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "$ref": "#/definitions/schema_version"
+        },
+        "kind": {
+          "const": "identities"
+        },
+        "preferred_login": {
+          "$ref": "#/definitions/login"
+        },
+        "targets": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "login",
+              "verified_at"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "login": {
+                "$ref": "#/definitions/login"
+              },
+              "capability": {
+                "enum": [
+                  "read",
+                  "comment",
+                  "write",
+                  "push"
+                ]
+              },
+              "verified_at": {
+                "$ref": "#/definitions/epoch"
+              }
+            }
+          }
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "kind",
+        "skill",
+        "key",
+        "run_id",
+        "target",
+        "worktree",
+        "mode",
+        "started_at",
+        "heartbeat",
+        "ttl",
+        "state"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "$ref": "#/definitions/schema_version"
+        },
+        "kind": {
+          "const": "run"
+        },
+        "skill": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "target": {
+          "$ref": "#/definitions/target"
+        },
+        "worktree": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "clone": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "editable",
+            "disposable-verification"
+          ]
+        },
+        "branch": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "head_sha": {
+          "$ref": "#/definitions/sha"
+        },
+        "base_sha": {
+          "$ref": "#/definitions/sha"
+        },
+        "started_at": {
+          "$ref": "#/definitions/epoch"
+        },
+        "heartbeat": {
+          "$ref": "#/definitions/epoch"
+        },
+        "ttl": {
+          "type": "integer",
+          "minimum": 60
+        },
+        "pid": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "state": {
+          "enum": [
+            "active",
+            "retained",
+            "finished"
+          ]
+        },
+        "artifact_globs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "meta": {
+          "type": "object"
+        }
+      }
+    },
+    "lease": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "kind",
+        "skill",
+        "key",
+        "run_id",
+        "acquired_at",
+        "heartbeat",
+        "ttl"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "$ref": "#/definitions/schema_version"
+        },
+        "kind": {
+          "const": "lease"
+        },
+        "skill": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "pid": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "acquired_at": {
+          "$ref": "#/definitions/epoch"
+        },
+        "heartbeat": {
+          "$ref": "#/definitions/epoch"
+        },
+        "ttl": {
+          "type": "integer",
+          "minimum": 60
+        }
+      }
+    },
+    "watcher": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "kind",
+        "prs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "$ref": "#/definitions/schema_version"
+        },
+        "kind": {
+          "const": "watcher"
+        },
+        "prs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "run_id",
+              "events"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "run_id": {
+                "type": "string"
+              },
+              "cursor": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "fingerprint": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "events": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "observed": {
+                      "type": "boolean"
+                    },
+                    "fix_head_sha": {
+                      "$ref": "#/definitions/sha"
+                    },
+                    "reply_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "resolved": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "enum": [
+                        "open",
+                        "acknowledged",
+                        "fix-claimed",
+                        "reproduced",
+                        "resolved"
+                      ]
+                    },
+                    "evidence": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              },
+              "all_green_reply_posted": {
+                "type": "boolean"
+              },
+              "manual_qa": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "state": {
+                    "enum": [
+                      "none",
+                      "planned",
+                      "pass",
+                      "fail",
+                      "blocked",
+                      "stale",
+                      "waived"
+                    ]
+                  },
+                  "tuple": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              "base_tip": {
+                "$ref": "#/definitions/sha"
+              },
+              "merge_base": {
+                "$ref": "#/definitions/sha"
+              },
+              "head_sha": {
+                "$ref": "#/definitions/sha"
+              },
+              "draft": {
+                "type": "boolean"
+              },
+              "human_reviewer": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9_]|-(?=[A-Za-z0-9_])){0,254}$"
+              },
+              "human_decision_head_sha": {
+                "$ref": "#/definitions/sha"
+              },
+              "ticket_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "project_status": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
