@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copy the ten Team Agent Skills packages into a skills directory and verify them.
+# Copy the eleven Team Agent Skills packages into a skills directory and verify them.
 # Works for any harness: pass the directory your agent loads skills from.
 set -euo pipefail
 
@@ -14,13 +14,13 @@ Usage: install.sh --target DIR [--only PKG[,PKG...]] [--dry-run] [--no-verify]
   --no-verify    Skip running verify.sh after copying.
 
 Each package is synced as TARGET/<package>/ — files removed upstream are removed
-from the installed copy too. Nothing outside those ten directories is touched;
+from the installed copy too. Nothing outside those eleven directories is touched;
 a skill's private configuration and state live elsewhere and are never affected.
 EOF
   exit "${1:-0}"
 }
 
-ALL_PACKAGES=(clean-memory create-clarity implement manual-qa orchestrate pr-fix pr-review tickets watch-and-fix watch-and-review)
+ALL_PACKAGES=(clean-memory create-clarity implement manual-qa orchestrate pr-fix pr-review ship tickets watch-and-fix watch-and-review)
 
 TARGET="" ONLY="" DRY_RUN=0 NO_VERIFY=0
 while [[ $# -gt 0 ]]; do
