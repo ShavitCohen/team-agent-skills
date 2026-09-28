@@ -1,6 +1,6 @@
 # Installing the skills
 
-The ten packages are independent directories, installable on **any agent harness** — they are
+The eleven packages are independent directories, installable on **any agent harness** — they are
 plain Markdown, shell scripts, and JSON, with no vendor metadata. There are two paths: copy the
 prebuilt packages (the short way, right for almost everyone), or have a coding agent build them
 from the specification (the full way).
@@ -18,7 +18,7 @@ From a clone of this repository:
 ./install.sh --target <your skills directory>
 ```
 
-`install.sh` syncs the ten packages into the target (removing files a newer version dropped),
+`install.sh` syncs the eleven packages into the target (removing files a newer version dropped),
 then runs `verify.sh` on the installed copies. Updating later is `git pull` and the same command.
 
 Where the target is, per harness:
@@ -45,9 +45,9 @@ under [`../spec/`](../spec/README.md), and the instruction below.
 
 ```text
 Read the specification under spec/ in this repository — spec/overview.md, everything under
-spec/shared/, and the ten skill specifications under spec/skills/ — and install all ten skills it
-specifies: create-clarity, implement, pr-review, pr-fix, manual-qa, watch-and-review,
-watch-and-fix, clean-memory, orchestrate, and tickets. Build each package exactly as specified,
+spec/shared/, and the eleven skill specifications under spec/skills/ — and install all eleven skills
+it specifies: create-clarity, implement, pr-review, pr-fix, manual-qa, watch-and-review,
+watch-and-fix, clean-memory, orchestrate, tickets, and ship. Build each package exactly as specified,
 including its scripts and reference files, then run the validation checklist for each one and
 report the installed paths.
 ```

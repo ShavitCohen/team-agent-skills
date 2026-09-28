@@ -8,7 +8,7 @@ commands in the directory where you cloned this repository.
 Use this on any harness with a skills directory. Paste into your agent, run from the clone:
 
 ```text
-This repository ships ten prebuilt agent-skill packages under skills/. Resolve the directory this
+This repository ships eleven prebuilt agent-skill packages under skills/. Resolve the directory this
 environment loads Agent Skills from (ask me if you cannot determine it), then run
 ./install.sh --target <that directory> and show me its output, including the verify.sh results.
 If this environment has no skills directory, install into a plain directory instead and tell me
@@ -26,9 +26,9 @@ clone:
 
 ```text
 Read the specification in this repository — spec/overview.md, everything under spec/shared/, and
-the ten skill specifications under spec/skills/ — together with install/INSTALL.md, and install
-all ten skills it specifies: create-clarity, implement, pr-review, pr-fix, manual-qa,
-watch-and-review, watch-and-fix, clean-memory, orchestrate, and tickets. Build each package
+the eleven skill specifications under spec/skills/ — together with install/INSTALL.md, and install
+all eleven skills it specifies: create-clarity, implement, pr-review, pr-fix, manual-qa,
+watch-and-review, watch-and-fix, clean-memory, orchestrate, tickets, and ship. Build each package
 exactly as specified, including its scripts and reference files, then run ./verify.sh on every
 package and each package's prose validation checklist, and report the installed paths and results.
 ```
