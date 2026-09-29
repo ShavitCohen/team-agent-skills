@@ -73,7 +73,7 @@ done
 if [[ ${#FOREIGN[@]} -gt 0 && $FORCE -eq 0 ]]; then
   echo "install.sh: these directories were not installed from this repository and would be replaced:" >&2
   printf '  %s\n' "${FOREIGN[@]}" >&2
-  echo "Move them aside, leave those packages out with --only, or pass --force to replace them." >&2
+  echo "Move them aside, leave those packages out with --only, or pass --force only if they may be discarded." >&2
   exit 1
 fi
 

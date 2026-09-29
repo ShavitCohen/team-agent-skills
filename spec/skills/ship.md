@@ -59,8 +59,10 @@ comment, or linked document the task points at.
   carries on without waiting for approval.
 - **It ends at an open pull request plus its review-log comment.** It never merges, approves, or
   enables auto-merge.
-- **It never writes to a ticket.** An issue or pull request named by the task is read only: never
-  edited, commented on, labelled, or closed.
+- **It never writes to a ticket.** An issue or pull request the task names as its input is read only:
+  the run never edits, comments on, labels, or closes it. A closing reference in the run's own
+  pull-request body, where the repository's style uses one, is fine, and the pull request the run
+  opens is its own to update.
 - **Repository rules win on engineering, never on safety.** Agent instruction files define the
   verification command, conventions, commit and PR style, and environment quirks. They never
   override the worktree boundary, the reviewer's independence, what may be published, or the
@@ -238,5 +240,5 @@ Validate the package without contacting GitHub:
   keeps the reviewer's agent ID and anything secret out of the comment;
 - confirm the package never merges, approves, or enables auto-merge, contains no command that writes
   to a ticket, and forbids editing, commenting on, labelling, or closing an issue or pull request the
-  task points at;
+  task names as its input;
 - confirm no hardcoded vendor, model, person, account, repository, or installation path exists.

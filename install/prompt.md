@@ -11,6 +11,8 @@ Use this on any harness with a skills directory. Paste into your agent, run from
 This repository ships eleven prebuilt agent-skill packages under skills/. Resolve the directory this
 environment loads Agent Skills from (ask me if you cannot determine it), then run
 ./install.sh --target <that directory> and show me its output, including the verify.sh results.
+If install.sh refuses to replace a directory it did not install, show me its message and ask me
+what to do; never pass --force or move my files yourself.
 If this environment has no skills directory, install into a plain directory instead and tell me
 how to reference each package's SKILL.md from this agent's instruction file.
 ```
