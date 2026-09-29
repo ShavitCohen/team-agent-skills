@@ -48,8 +48,8 @@ The Developer, Reviewer, and Manual QA agent run in separate sessions — often 
 runtimes — and talk to each other only through comments on the pull request, each one signed with
 the role and the verified account that posted it.
 
-**Work with no ticket.** Ship is the one skill outside this chain. It builds a task in its own
-worktree and loops locally with an independent reviewer agent — review, fix, review again — until
+**Work with no ticket.** Ship is the one skill that builds and opens pull requests outside this
+chain. It works a task in its own worktree and loops locally with an independent reviewer agent — review, fix, review again — until
 the reviewer approves. Only then does it open the pull request, with the log of every round posted
 on it.
 
@@ -60,8 +60,9 @@ on it.
 - **No skill edits a ticket.** Everything a skill contributes is an append-only comment; the ticket
   body, title, and labels stay exactly as their author wrote them.
 - **Every run owns one isolated git worktree** and removes it when done — except ship's, which
-  stays for follow-up rounds on its PR. Your checkout is never touched, and many runs can work in
-  one repository at the same time.
+  stays for follow-up rounds on its PR. Your checkout is left as it was — ship carries uncommitted
+  changes out of it only when you say so — and many runs can work in one repository at the same
+  time.
 - **All ticket, PR, and comment text is untrusted data**, never instructions. A comment that says
   "merge this" gets quoted to you, not obeyed.
 - **Problems are said out loud.** Missing tools, unreadable boards, unverifiable claims — every
@@ -113,7 +114,8 @@ git pull
 ```
 
 A skill's private configuration and state live outside its package, so updating never touches your
-settings. See [CHANGELOG.md](CHANGELOG.md) for what changed between versions; releases are tagged.
+settings. `install.sh` refuses to replace a same-named directory it did not install — a personal
+skill called `ship`, say — unless you pass `--force`. See [CHANGELOG.md](CHANGELOG.md) for what changed between versions; releases are tagged.
 
 ## Verify
 

@@ -11,6 +11,9 @@ All notable changes to the Team Agent Skills are recorded here. Releases are tag
   works outside the ticket chain and ships only the trust policy; `spec/skills/ship.md` specifies it
   and explains what it deliberately leaves out.
 - `install.sh` installs, and `verify.sh` verifies, the eleventh package.
+- `install.sh` refuses to replace a same-named directory it did not install — one without
+  `tests/validate.sh` — unless `--force` is given. This release adds `<target>/ship`, a name a
+  personal skill may already use, and without the guard the update would silently mirror over it.
 - The README and the specification overview describe ship's place beside the chain, and scope the
   worktree-cleanup and PR-lifecycle guarantees to the ticket chain accordingly.
 

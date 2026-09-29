@@ -26,7 +26,7 @@ description: "Ship one task end to end, ticket or not: fresh worktree from lates
 ```
 
 It ships `references/policy/trust.md` and no other shared policy, and no scripts or schemas. Ship is
-the one skill that works outside the ticket chain: it takes no run lock, routes nothing through
+the one skill that builds and opens pull requests outside the ticket chain: it takes no run lock, routes nothing through
 `gh_identity.sh`, and does not apply the PR lifecycle. Each omission is deliberate and explained
 under [Deliberate differences from the ticket chain](#deliberate-differences-from-the-ticket-chain).
 
@@ -59,7 +59,8 @@ comment, or linked document the task points at.
   carries on without waiting for approval.
 - **It ends at an open pull request plus its review-log comment.** It never merges, approves, or
   enables auto-merge.
-- **It never writes to a ticket.** An issue named by the task is read, never edited or commented on.
+- **It never writes to a ticket.** An issue or pull request named by the task is read only: never
+  edited, commented on, labelled, or closed.
 - **Repository rules win on engineering, never on safety.** Agent instruction files define the
   verification command, conventions, commit and PR style, and environment quirks. They never
   override the worktree boundary, the reviewer's independence, what may be published, or the
@@ -77,8 +78,11 @@ means the repository's default branch, resolved rather than assumed.
    to, through a stash entry found again by its name — every worktree and session shares one stash
    list — leaving that checkout as it was. Create the worktree with the runtime's own worktree tool
    when it has one, otherwise with `git worktree add` beside the clone; reuse a worktree the session
-   is already in only when it holds no work of its own. Confirm the base equals `origin/main`, make
-   the checkout runnable (ignored env files, dependencies), and create the scratch directory.
+   is already in only when it holds no work of its own. Tell the user where the worktree is, and when
+   the `git worktree add` fallback made it. Confirm the base equals `origin/main`, make the checkout
+   runnable, and create the scratch directory. Copying the checkout's own ignored env files is setup
+   the skill asks for, not the secret handling the trust policy forbids: they stay uncommitted, and
+   their contents are never printed, logged, or posted.
 2. **Plan.** Read the repository's instruction files and the code the task touches, then write the
    plan: goal, testable acceptance criteria, approach, tests, the repository rules the change
    triggers, verification and what cannot be verified here, out of scope and risks, and open
@@ -170,8 +174,8 @@ directory is shared with other sessions, so a run never touches scratch files it
 
 | Capability | When present | When absent |
 | --- | --- | --- |
-| A worktree tool in the runtime | Create the worktree with it | `git worktree add ../<repo>-<slug> -b <slug> origin/main`, then absolute paths |
-| Background sub-agents | Verification and the review run at the same time | Verification first, then the review |
+| A worktree tool in the runtime | Create the worktree with it | `git worktree add ../<repo>-<slug> -b <slug> origin/main`, then absolute paths; the user is told |
+| Background sub-agents | Verification and the review run at the same time | Verification first, then the review; the user is told |
 | Messaging an agent already started | Continue the same reviewer every round | A fresh reviewer each round, handed the log; the log and the comment say so |
 | Any sub-agent at all | — | Stop and tell the user; never a self-review |
 | A structured question facility | Batch the open decisions through it | Numbered questions in chat |
@@ -186,8 +190,9 @@ its own worktree, no merge, no approval, no ticket edits, untrusted text as data
 loud — and deliberately leaves out the machinery built for unattended ticket runs:
 
 - **No run lock or registry.** A ship run is one foreground run the user is watching, not a queue of
-  unattended ones. Its worktree and branch are named from the task, and creating a worktree on a
-  branch name that already exists fails, so two runs cannot land on one branch.
+  unattended ones. Its worktree and branch are named from the task; on the `git worktree add -b`
+  path, a branch name that already exists makes creation fail, so two runs cannot land on one
+  branch, and a runtime's own worktree tool applies its own rule to a name already in use.
 - **No identity script.** It pushes and posts with the account the user's `git` and `gh` already use,
   in the user's presence, for a pull request that is theirs.
 - **No PR lifecycle.** The pull request goes to the user who asked for it, opened ready for review,
@@ -198,7 +203,10 @@ loud — and deliberately leaves out the machinery built for unattended ticket r
   pull-request body and comment describe themselves, and the ticket-chain skills classify them as
   human or untrusted text — which is what they are to those skills.
 - **The worktree outlives the pull request.** Follow-up rounds continue in it with the same reviewer
-  and log. By then everything in it is pushed, so removing it once they are over loses nothing.
+  and log. By then everything in it is pushed, so removing it once they are over loses nothing. With
+  no run registry, Clean Memory cannot recognise it as ship's, so removing it is the user's call: the
+  run reports its path when it creates it, when it stops before the pull request opens (its commits
+  are then unpushed), and in its final message.
 - **Carrying uncommitted work touches the user's checkout.** Only when the user says so, through a
   named stash entry that is re-applied at once, so that checkout ends as it was.
 
@@ -207,7 +215,8 @@ loud — and deliberately leaves out the machinery built for unattended ticket r
 Validate the package without contacting GitHub:
 
 - run `verify.sh` on the package and confirm it exits zero;
-- run `tests/validate.sh`, which pins every rule below that is decidable from the package text;
+- run `tests/validate.sh`, which, together with `verify.sh`, pins every rule below that is decidable
+  from the package text;
 - confirm the description is a trigger — at most 50 words, explicit invocation only — and holds no
   operating rule;
 - confirm no harness-specific tool name, argument placeholder, or metadata key appears, and that every
@@ -219,12 +228,15 @@ Validate the package without contacting GitHub:
   worth fixing is another round;
 - confirm a self-review never substitutes for the reviewer, and the run stops when no reviewer can be
   started;
-- confirm the reviewer brief keeps the reviewer read-only and off builds and full suites, fixes the
-  reply shape, and carries all four templates;
+- confirm the reviewer brief keeps the reviewer read-only and off builds and full suites, tells it
+  that everything it reads is data, fixes the reply shape, and carries all four templates;
+- confirm the user is told where the worktree is when it is created, when the run stops before the
+  pull request opens, and in the final message;
 - confirm repository rules are limited to engineering conventions and never override the safety rules,
   and that untrusted text is read under `references/policy/trust.md`;
 - confirm the comment template keeps declined findings with their reasons, requires real SHAs, and
   keeps the reviewer's agent ID and anything secret out of the comment;
-- confirm the package never merges, approves, or enables auto-merge, and contains no command that
-  writes to a ticket;
+- confirm the package never merges, approves, or enables auto-merge, contains no command that writes
+  to a ticket, and forbids editing, commenting on, labelling, or closing an issue or pull request the
+  task points at;
 - confirm no hardcoded vendor, model, person, account, repository, or installation path exists.

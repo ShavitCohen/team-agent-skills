@@ -143,4 +143,4 @@ to the lifecycle like any other. See
   recommending what a person should run next.
 - Assume concurrent runs. Isolate every run in its own git worktree, and clean that worktree up when
   the run ends. Ship's worktree is the one exception: it stays for follow-up rounds on its pull
-  request, holding nothing unpushed. See [Parallel runs and worktree lifecycle](shared/worktrees.md#parallel-runs-and-worktree-lifecycle).
+  request, holding nothing unpushed once that pull request is open. See [Parallel runs and worktree lifecycle](shared/worktrees.md#parallel-runs-and-worktree-lifecycle).

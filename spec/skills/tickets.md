@@ -32,9 +32,9 @@ description: "Show what is on the user's plate: open pull requests with the next
 It ships `references/policy/trust.md` and no other shared policy. The skill takes no lock, opens no
 worktree, pushes nothing, and needs no identity selection beyond reading which account is
 authenticated — so it carries none of that policy, per
-[Self-contained shared policy](../shared/verification.md#self-contained-shared-policy). It is the only package in the family
-with no `scripts/run_lock.sh`, and that absence is the point: a read-only report should not be able
-to block a build.
+[Self-contained shared policy](../shared/verification.md#self-contained-shared-policy). It is one of two packages in the family
+with no `scripts/run_lock.sh` — Ship, which runs in the foreground with the user present, is the
+other — and here that absence is the point: a read-only report should not be able to block a build.
 
 ## Purpose
 

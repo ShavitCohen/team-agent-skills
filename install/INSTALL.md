@@ -19,7 +19,9 @@ From a clone of this repository:
 ```
 
 `install.sh` syncs the eleven packages into the target (removing files a newer version dropped),
-then runs `verify.sh` on the installed copies. Updating later is `git pull` and the same command.
+then runs `verify.sh` on the installed copies. It refuses to replace a same-named directory it did
+not install — one without `tests/validate.sh`, such as a personal skill called `ship` — unless you
+pass `--force`. Updating later is `git pull` and the same command.
 
 Where the target is, per harness:
 
@@ -101,8 +103,9 @@ Perform these steps in order.
 
 7. **Check prerequisites and report what is missing** rather than installing anything: `git` with
    worktree support, the GitHub CLI, `jq`, a filesystem that supports atomic directory creation and
-   rename for [parallel runs](../spec/shared/worktrees.md#parallel-runs-and-worktree-lifecycle), and any tools required by the
-   repository's selected browser-validation workflow. Missing tools are a user-facing report, not an
+   rename for [parallel runs](../spec/shared/worktrees.md#parallel-runs-and-worktree-lifecycle), any tools required by the
+   repository's selected browser-validation workflow, and — for Ship — a runtime that can start a
+   separate agent to act as its reviewer. Missing tools are a user-facing report, not an
    install failure.
 
 8. **Run `verify.sh` and paste its real output.** It is specified in
