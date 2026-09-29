@@ -1,6 +1,6 @@
 # The specification
 
-This directory is the source of truth for the ten skill packages shipped under
+This directory is the source of truth for the eleven skill packages shipped under
 [`skills/`](../skills). It was originally one ~5,000-line document; it is split here by concern so
 a reader — human or agent — loads only what a task needs.
 

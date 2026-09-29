@@ -1,6 +1,6 @@
 # Installing the skills
 
-The ten packages are independent directories, installable on **any agent harness** — they are
+The eleven packages are independent directories, installable on **any agent harness** — they are
 plain Markdown, shell scripts, and JSON, with no vendor metadata. There are two paths: copy the
 prebuilt packages (the short way, right for almost everyone), or have a coding agent build them
 from the specification (the full way).
@@ -18,8 +18,10 @@ From a clone of this repository:
 ./install.sh --target <your skills directory>
 ```
 
-`install.sh` syncs the ten packages into the target (removing files a newer version dropped),
-then runs `verify.sh` on the installed copies. Updating later is `git pull` and the same command.
+`install.sh` syncs the eleven packages into the target (removing files a newer version dropped),
+then runs `verify.sh` on the installed copies. It refuses to replace a same-named directory it did
+not install — one without `tests/validate.sh`, such as a personal skill called `ship` — unless you
+pass `--force`. Updating later is `git pull` and the same command.
 
 Where the target is, per harness:
 
@@ -45,9 +47,9 @@ under [`../spec/`](../spec/README.md), and the instruction below.
 
 ```text
 Read the specification under spec/ in this repository — spec/overview.md, everything under
-spec/shared/, and the ten skill specifications under spec/skills/ — and install all ten skills it
-specifies: create-clarity, implement, pr-review, pr-fix, manual-qa, watch-and-review,
-watch-and-fix, clean-memory, orchestrate, and tickets. Build each package exactly as specified,
+spec/shared/, and the eleven skill specifications under spec/skills/ — and install all eleven skills
+it specifies: create-clarity, implement, pr-review, pr-fix, manual-qa, watch-and-review,
+watch-and-fix, clean-memory, orchestrate, tickets, and ship. Build each package exactly as specified,
 including its scripts and reference files, then run the validation checklist for each one and
 report the installed paths.
 ```
@@ -101,8 +103,9 @@ Perform these steps in order.
 
 7. **Check prerequisites and report what is missing** rather than installing anything: `git` with
    worktree support, the GitHub CLI, `jq`, a filesystem that supports atomic directory creation and
-   rename for [parallel runs](../spec/shared/worktrees.md#parallel-runs-and-worktree-lifecycle), and any tools required by the
-   repository's selected browser-validation workflow. Missing tools are a user-facing report, not an
+   rename for [parallel runs](../spec/shared/worktrees.md#parallel-runs-and-worktree-lifecycle), any tools required by the
+   repository's selected browser-validation workflow, and — for Ship — a runtime that can start a
+   separate agent to act as its reviewer. Missing tools are a user-facing report, not an
    install failure.
 
 8. **Run `verify.sh` and paste its real output.** It is specified in

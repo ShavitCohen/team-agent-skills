@@ -1,8 +1,9 @@
 # Team Agent Skills
 
-This document defines ten model-agnostic Agent Skills. Five perform one unit of work each, two turn
+This document defines eleven model-agnostic Agent Skills. Five perform one unit of work each, two turn
 two of those into watch loops, one reclaims what they all leave behind, one chains the work on a
-single ticket, and one answers the question that comes before all of them — what is on my plate:
+single ticket, one answers the question that comes before all of them — what is on my plate — and one
+takes work that may have no ticket at all through a quality cycle of its own:
 
 1. [Create Clarity](skills/create-clarity.md) — turn an issue into an evidence-backed ticket.
 2. [Implement](skills/implement.md) — turn one ticket into one open pull request.
@@ -16,6 +17,8 @@ single ticket, and one answers the question that comes before all of them — wh
    issue until the Reviewer publishes readiness for human review.
 10. [Tickets](skills/tickets.md) — show what is on the user's plate, refreshed: the pull requests that owe
     something, and the tickets to land, to start, or to wait on.
+11. [Ship](skills/ship.md) — on the user's explicit request, take any task, ticket or not, to a pull
+    request that an independent reviewer agent has already approved, reviewing locally before the PR exists.
 
 **Work and watching are separate skills, deliberately.** Reviewing a pull request is a bounded job
 that ends in a verdict; deciding when to review it again is a different job. PR Review and PR Fix do
@@ -73,6 +76,11 @@ Orchestrate  ── drives the chain above on one ticket, on the user's explicit
                 decision it took in the human's place, because in yolo no question reaches a
                 human at all: the orchestrator answers it, posts it, and keeps going until the
                 Reviewer's green light.
+
+Ship         ── stands outside the chain, for work with or without a ticket: builds in its
+                own worktree, runs its review loop locally with an independent reviewer agent
+                until that reviewer approves, and only then opens the pull request, posting
+                the log of every round on it. It starts no other skill.
 ```
 
 PR Fix, PR Review, and Manual QA are counterparts designed to run on the same pull request in
@@ -101,10 +109,13 @@ not a GitHub approval: the review decision stays with the human reviewer, so the
 `REVIEW_REQUIRED` until they act, and an automated verdict can never light up the merge button on
 their behalf.
 
-Every PR the family produces or watches also obeys the
+Every PR the ticket chain produces or watches also obeys the
 [GitHub PR and board lifecycle](shared/pr-lifecycle.md#github-pr-and-board-lifecycle): every open PR is either Draft, or
 Ready for review with a **human** reviewer requested or a completed human decision for the current
-review round.
+review round. Ship, which works outside the chain, opens its pull request ready for review for the
+user who asked for it; if that pull request later enters the team's review flow, PR Review holds it
+to the lifecycle like any other. See
+[Deliberate differences from the ticket chain](skills/ship.md#deliberate-differences-from-the-ticket-chain).
 
 ## Shared portability requirements
 
@@ -121,7 +132,7 @@ review round.
   scope, identity, secret handling, destructive-action rules, worktree isolation, or this document's
   safety invariants.
 - Keep supporting resources inside the skill directory and reference them with portable relative paths.
-- Never copy this document's own anchor links (`](#heading)`) into a package. Inside the ten skill
+- Never copy this document's own anchor links (`](#heading)`) into a package. Inside the eleven skill
   sections every cross-reference is already written as a package-relative path; copy it exactly as
   written. An anchor that resolves only inside this specification is a broken link in a `SKILL.md`.
 - Prefer deterministic helper scripts for repeated, safety-sensitive operations.
@@ -131,4 +142,5 @@ review round.
   the stage, under the contract in [Starting another skill](shared/handoff.md#starting-another-skill). No skill ends by
   recommending what a person should run next.
 - Assume concurrent runs. Isolate every run in its own git worktree, and clean that worktree up when
-  the run ends. See [Parallel runs and worktree lifecycle](shared/worktrees.md#parallel-runs-and-worktree-lifecycle).
+  the run ends. Ship's worktree is the one exception: it stays for follow-up rounds on its pull
+  request, holding nothing unpushed once that pull request is open. See [Parallel runs and worktree lifecycle](shared/worktrees.md#parallel-runs-and-worktree-lifecycle).

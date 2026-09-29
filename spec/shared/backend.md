@@ -33,7 +33,8 @@ with pagination on every collection:
   credential belongs to; per-invocation credentials (run one command as one account without
   switching any global state). This is what `gh auth token` / `GH_TOKEN` provide on GitHub.
 - **Git interop.** The forge hosts ordinary git branches the agent can push to with
-  credential-scoped `git push` — needed by `implement`, `pr-fix`, and their watchers.
+  credential-scoped `git push` — needed by `implement`, `pr-fix`, and their watchers. `ship` pushes
+  with the user's own git credentials.
 - **Project board (optional).** A readable/movable status field for tickets. Every skill that
   touches board status degrades explicitly when the board is unreadable, so a backend without one
   still works.
@@ -46,11 +47,12 @@ is platform-neutral and unchanged:
 
 | File | Role | In a port |
 | --- | --- | --- |
-| `scripts/gh_identity.sh` (all packages that write) | Account resolution, capability probing, credential-scoped command execution and `git-push` | Reimplement against the platform's CLI/MCP and credential mechanism, same subcommand contract |
+| `scripts/gh_identity.sh` (all packages that write, except ship) | Account resolution, capability probing, credential-scoped command execution and `git-push` | Reimplement against the platform's CLI/MCP and credential mechanism, same subcommand contract |
 | `scripts/poll_pr.sh` (PR-handling packages) | Change-filtered PR snapshots with fingerprints and cursors | Reimplement against the platform's PR/MR reads, same snapshot schema (`schemas/poll-snapshot-v1.json`) and exit-code contract |
 | `references/gh-commands.md` (implement, pr-fix, pr-review) | The exact per-skill command invocations | Rewrite for the platform's CLI/MCP |
 | `references/policy/pr-lifecycle.md` | Draft/ready, reviewer-request, and board-status state mapping | Re-map to the platform's equivalents |
 | `tickets/scripts/fetch_tickets.sh` | The two paged searches behind the worklist | Reimplement against the platform's search |
+| `ship/SKILL.md`, `ship/references/pr-comment-template.md` | Ship's inline `gh` calls: the default branch, recent pull requests, creating the pull request, posting the review log | Rewrite for the platform's CLI/MCP |
 | `references/policy/identity.md` | The written identity policy | Adjust platform specifics; the rules stay |
 
 A port keeps every behavioral contract: snapshots keep their schema and fingerprint semantics,
