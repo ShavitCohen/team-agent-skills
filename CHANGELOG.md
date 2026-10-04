@@ -3,6 +3,15 @@
 All notable changes to the Team Agent Skills are recorded here. Releases are tagged; update with
 `git pull` and re-run `./install.sh --target <your skills directory>`.
 
+## Unreleased
+
+- `tickets`: `SKILL.md` now states the full evidence rule (closing link, branch naming the ticket by
+  number, or title naming it; anything else dropped, never marked) and points at the permanent
+  regression tests, including that a branch naming a different ticket does not join.
+- `tickets`: `SKILL.md` now states the paged-GraphQL, field-selection rule and its rate-limit
+  rationale, and that checks are named, never derived from the rollup. The spec already said both;
+  the skill text now matches it.
+
 ## 1.0.0 — 2026-09-11
 
 First public release.
