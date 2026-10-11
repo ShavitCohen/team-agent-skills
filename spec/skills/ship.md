@@ -38,8 +38,8 @@ independent reviewer has already signed off on, together with a record of what t
 The rest of the family is organised around a ticket: Create Clarity makes one decidable, Implement
 turns it into a pull request, and PR Review and PR Fix then hold that pull request to a standard in
 public, one cycle at a time. Plenty of work never gets a ticket — a refactor, a tooling change, a fix
-the user noticed a minute ago — and it deserves the same quality cycle. Ship provides it, with one
-difference in *where* the cycle happens: **the review loop runs before the pull request exists**,
+the user noticed a minute ago — and it deserves the same quality cycle. Like orchestrated
+implementation, Ship runs **the review loop before the pull request exists**,
 between the agent that builds and a reviewer agent started for the purpose. The pull request comes
 last on purpose. The user should receive a pull request that has already survived an independent
 review, not one that is about to start its first.
@@ -100,8 +100,8 @@ means the repository's default branch, resolved rather than assumed.
 7. **Post the review log** as a comment on it, built from `references/pr-comment-template.md`.
 
 Follow-up rounds on the same pull request keep the same reviewer and log and are posted as a new
-comment. A conflict with `main` is merged and pushed first, then verified and reviewed on the pushed
-branch, because the user watches the pull request, not the worktree.
+comment. A conflict with `main` is resolved and committed locally, then fully verified and reviewed
+before push. Follow-ups keep the same local CI gate as the first push.
 
 ## The review loop
 
@@ -109,6 +109,20 @@ branch, because the user watches the pull request, not the worktree.
 application for user-visible changes when the environment can make one — counted only when it shows
 something that exists only on this branch. Nothing edits the worktree while it runs. What could not
 be checked goes into the pull request as not verified, never as done.
+
+Read the CI workflows and invoked scripts as well as the documented suite. Before every push, run
+all applicable checks that can run locally on the exact committed revision, respecting path filters
+and matrix requirements: lint, formatting, types, build, unit, integration, and end-to-end tests where
+configured. Match CI runtimes, dependencies, and local services where feasible. Focused tests alone
+are insufficient. Reuse results only for an unchanged commit, configuration, and environment; after
+fixes, generated changes, rebases, or base merges, commit and rerun verification.
+
+Fix new or change-related failures before push. Record baseline evidence for unrelated existing
+failures without expanding scope. For unavailable local checks, try documented local equivalents,
+record the exact check, reason, attempted alternative, and residual gap as not run, and run the rest
+within existing authorizations. Missing credentials, unavailable services or platforms, and remote-only
+checks can explain a gap; convenience or suite duration cannot. Include the checked SHA, commands,
+results, and gaps in the review log and PR. Remote CI remains required where the repository requires it.
 
 **The reviewer** is one agent for the whole loop:
 
@@ -226,6 +240,9 @@ Validate the package without contacting GitHub:
 - confirm the loop ends only on all three conditions — reviewer approval with nothing worth fixing,
   the author satisfied, verification on the exact pushed commit — and that an approval with notes
   worth fixing is another round;
+- confirm every push, including a follow-up merge from main, follows full applicable local CI
+  verification and review; unavailable checks are reported honestly with reasons and alternatives,
+  and new failures block push;
 - confirm a self-review never substitutes for the reviewer, and the run stops when no reviewer can be
   started;
 - confirm the reviewer brief keeps the reviewer read-only and off builds and full suites, tells it
