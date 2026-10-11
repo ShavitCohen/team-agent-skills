@@ -5,7 +5,7 @@ own scope, identity, locks, worktree, hard rules, and stop conditions wherever i
 changes is who reads the package, whose model runs it, and how a question reaches the user.
 
 Under orchestration nothing watches. The orchestrating run spawns one agent, waits for it, reads the
-pull request itself, and spawns the next — one agent live at a time. That single invocation shape is
+pull request itself, and spawns the next — one active stage at a time. That single invocation shape is
 specified below the lane kinds.
 
 ## The three lane kinds
@@ -54,13 +54,18 @@ that process — it is this run's own child. Its worktree, lock, and registry en
 skill's resume and cleanup rules; never remove them. Liveness: the process handle, plus the stage's own
 lease in the shared registry.
 
-## One agent at a time
+## One active stage at a time
 
 A lane decides **who** runs a stage. **How** it is invoked is not a choice. Under orchestration no
 stage attaches a watcher and no stage polls: an agent is spawned for exactly one cycle — one review,
 one fix, one QA run — which ends with its report. The orchestrating run waits for that report, reads
 the pull request itself with `poll_pr.sh --once`, decides what the pull request is owed next, and
-spawns that. **At no point are two agents live.**
+spawns that. **At no point do two stages work concurrently.** Implement's pre-push local review is
+an internal read-only helper: the worker waits on a frozen committed worktree while it runs, then
+resumes edits only after its report. Use the resolved reviewer execution settings for that helper,
+with a separate agent when the review lane is `inline`; it follows Implement's local brief, not the
+PR Review skill. The worker tracks and stops it, and it makes no GitHub announcements. If it cannot
+run independently, report a blocker rather than degrading to self-review or review after push.
 
 Each of the three pull-request stages already has a wake-up mode of its own, and a cycle is one
 wake-up of it. The invocation never changes the stage's rules: the same lock, state file, worktree,

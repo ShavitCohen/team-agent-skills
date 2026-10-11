@@ -64,7 +64,11 @@ Commit in logical steps, in the repo's commit style. When you think you're done,
 
 Each round goes: **commit → start verification and the review together, both in the background → wait for both → triage → fix → next round.** If the reviewer reports first, plan your fixes but don't apply them until verification finishes (or stop it). Where your runtime can't run them in the background, run verification first, then the review, and tell the user.
 
-**Verification** is the repo's full suite (e.g. `yarn verify`, whatever its docs mandate), run on the committed HEAD. For user-visible changes, also check the running app if your environment can. A preview started from a worktree session may serve the main checkout instead, so count the app as checked only if it shows something that exists only on this branch. If you can't check it, record that: it goes in the PR as not verified, never as done.
+**Verification** is the repo's full suite (e.g. `yarn verify`, whatever its docs mandate), run on the committed HEAD. Read the CI workflows and invoked scripts too: before every push, run all applicable CI checks that can run locally, respecting path filters and matrix requirements, including lint, formatting, types, build, unit, integration, and end-to-end tests where configured. Match CI's runtime, dependencies, and local services where feasible; focused tests alone are insufficient. Reuse results only for an unchanged commit, configuration, and environment. After fixes, generated changes, rebases, or base merges, commit and rerun verification before pushing.
+
+Fix new or change-related failures before push. Record baseline evidence for unrelated pre-existing failures without expanding scope. When a check cannot run locally, try its documented local equivalent and record the exact check, reason, attempted alternative, and residual gap as **not run**; run the rest within existing authorizations. Missing credentials, unavailable services or platforms, and remote-only checks can explain a gap; convenience or suite duration cannot. Record the checked SHA, commands, actual results, and gaps in the review log and PR. Remote CI remains required where the repository requires it.
+
+For user-visible changes, also check the running app if your environment can. A preview started from a worktree session may serve the main checkout instead, so count the app as checked only if it shows something that exists only on this branch. If you can't check it, record that: it goes in the PR as not verified, never as done.
 
 **The reviewer** is one agent for the whole loop.
 
@@ -106,6 +110,6 @@ Then tell the user: the PR link, how many rounds it took and how it ended, anyth
 
 ## If work continues after the PR is open
 
-For follow-ups on the same PR, keep the same reviewer and log, and post later rounds as a new comment. If `main` starts conflicting with the PR, push the merge as soon as it's committed and the suites it touches pass, then run full verification and a review round on the pushed branch. The user watches the PR, not the worktree.
+For follow-ups on the same PR, keep the same reviewer and log, and post later rounds as a new comment. If `main` starts conflicting with the PR, resolve and commit the merge locally, then complete full verification and a review round before pushing. Every follow-up push keeps the same local CI gate as the first push.
 
 The worktree stays for these follow-ups. Everything in it is pushed by now, so removing it once they're over loses nothing.
