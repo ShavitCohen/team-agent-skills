@@ -129,7 +129,7 @@ what is new.
      break nothing else? Only a change that passes validation gets implemented. Never apply a fix
      that cannot be justified.
    - If warranted, bring the worktree to the current head, make the change, commit in the
-     repository's conventions, and push.
+     repository's conventions, pass the local CI gate, and push.
    - Reply in the thread with what changed and where — or, when disagreeing, a concrete technical
      reason no change is needed. Reply once to each substantive question or requested change; do not
      reply to reactions, acknowledgements, automation heartbeats, or non-actionable status noise.
@@ -137,12 +137,15 @@ what is new.
      when its own thread is settled.
 2. **Base branch moved.** When the PR reports being behind, or the base tip no longer matches the
    recorded parent tip, follow repository policy: use GitHub's update-branch mechanism or a merge
-   commit when required; rebase only when allowed and safe. Re-run affected tests after
-   synchronization and update the recorded base tip.
+   commit when required; rebase only when allowed and safe. Prefer local synchronization so the
+   result passes the local CI gate before push. When repository policy requires a remote update-branch
+   operation, record that gap and validate the resulting head locally before further pushes or
+   readiness. Update the recorded base tip after validation.
 3. **Conflicts.** Stop on a semantic or non-trivial conflict and report the conflicting paths and
    decision needed. Resolve only mechanical conflicts whose intended result is unambiguous from the
    ticket, tests, and both sides of the change. Never guess at product or data semantics.
-4. **Failing checks.** Read the failing logs, fix the cause, and push. Green checks are part of all
+4. **Failing checks.** Read the failing logs, reproduce locally where possible, fix the cause, pass
+   the local CI gate, and push. Green checks are part of all
    green. Distinguish a product defect from an unavailable tool, credential, or environment
    dependency, and report the latter to the user instead of forcing a code change.
 5. **Browser-visible fixes.** When a fix changes browser-visible behavior, verify it per
@@ -168,6 +171,28 @@ what is new.
 
 End the cycle with one status line — for example, comments validated, fixes pushed, whether a
 rebase happened, and what the PR is now waiting on.
+
+## Local CI gate — before every push
+
+Read the repository's CI workflows, invoked scripts, and documented verification commands. Map every
+check applicable to the change to its local command, respecting path filters and matrix requirements:
+lint, formatting, types, build, unit, integration, and end-to-end tests where configured. Run all that
+can run locally on the exact committed revision to be pushed, using CI's runtime, dependencies, and
+local services where feasible. Focused regression tests alone do not replace the applicable suites.
+This gate applies to every fix, conflict resolution, base synchronization, retry, and later cycle.
+
+Do not edit while checks run. After code, generated files, formatting, or base changes, commit and
+rerun the gate; reuse results only while the commit, configuration, and environment remain unchanged.
+Fix new or change-related failures before pushing. Report unrelated pre-existing failures with
+baseline evidence without widening the ticket. For a check unavailable locally, try its documented
+local equivalent and record the exact check, reason, attempted alternative, and residual gap as
+**not run**, never passed. Missing credentials, services, platforms, or remote-only checks can explain
+a gap; convenience or suite duration cannot. Run every remaining check within existing authorizations.
+Do not push merely to discover failures that local CI checks could catch.
+
+Include the checked SHA, commands, actual results, and gaps in the revision's verification evidence
+and cycle report. Remote CI still has to satisfy the existing readiness gates; local results do not
+substitute for it. Retain unpushed work and report the blocker if this gate cannot be satisfied.
 
 ## Working tree discipline
 
@@ -354,6 +379,12 @@ Validate the package without contacting GitHub:
 - confirm the package contains no `gh issue edit` call or equivalent ticket-field mutation, and that
   the Developer never writes a linked issue's body, title, labels, milestone, or assignees;
 - confirm the Developer never resolves review threads;
+- confirm every push, including fixes, synchronization, retries, and later cycles, runs all
+  applicable CI checks locally where feasible on the final committed revision;
+- confirm changed commits invalidate prior CI results, new failures block push, unrelated failures
+  need baseline evidence, and unavailable checks are recorded with reasons and attempted alternatives;
+- confirm the cycle report includes the checked SHA, commands, results, and gaps, and remote CI
+  remains a separate readiness gate;
 - confirm the PR lifecycle policy is shipped and applied: the ticket moves to In Progress on
   Changes Requested, the human reviewer is re-requested when the ready revision is pushed, a Ready
   PR with remaining author work is converted back to Draft, and the lifecycle invariant is part of

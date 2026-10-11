@@ -44,7 +44,9 @@ These bind the foreground session and the unattended run equally.
   explicitly authorizes a worktree-local override.
 - **No parallel spec framework.** Do not invoke a separate specification, planning, or task-file
   workflow, and do not create specification, plan, task, or verification files. The discipline in this
-  skill replaces them. The ticket and the pull request are the only durable records.
+  skill replaces them. A run-scoped scratch review log outside the repository is the one exception:
+  keep it through local review and publish its record in the initial PR body. The ticket and pull
+  request remain the durable records.
 - **Never merge.** This skill ends at "pull request open". Do not merge, enable auto-merge, or approve
   its own pull request. Request a named human reviewer only through the gated Ready transition in
   `references/policy/pr-lifecycle.md`. Merging requires the required human approval, the required
@@ -60,6 +62,10 @@ These bind the foreground session and the unattended run equally.
 - **Scope fence.** Build only what this ticket asks. Pre-existing bugs, unrelated test failures, and
   tempting refactors get noted in the pull-request body and the report, never silently fixed. A change
   that grows past the ticket is how a reviewable pull request becomes an unreviewable one.
+- **Before every push**, run all applicable CI checks that can run locally on the final committed
+  revision, per `references/worker-brief.md`. Under Orchestrate, the first independent review–fix
+  loop also happens locally in that brief's Step 5, with CI checks in every round, before the first
+  push or pull request. The initial PR body must include the round-by-round review–fix log.
 - **Never guess past a blocking unknown.** When a genuinely ambiguous decision would change the
   outcome, stop and surface it. In the foreground that means asking the user; unattended it means
   halting and reporting.
@@ -182,6 +188,10 @@ context. Include:
 - the resolved lifecycle inputs — the named human reviewer or the fact that none was resolvable, the
   ticket's board item and status field, and the status values to move it between;
 - an instruction to read `references/worker-brief.md` from this package and follow it exactly;
+- whether an independent local review is required (always under Orchestrate), and any resolved
+  reviewer runtime, model, and effort supplied by the parent; carry this through every worker resume;
+- the scratch review-log path when resuming, and the requirement to publish all completed rounds,
+  finding dispositions, and CI evidence in the initial PR body;
 - the ground rules above, restated.
 
 Do not let the runtime create a second worktree; the worktree already exists.
@@ -191,7 +201,9 @@ Do not let the runtime create a second worktree; the worktree already exists.
 When the unattended run returns, its report is not shown to the user — relay what matters:
 
 - **Pull request opened** → the URL, a one-line summary of what was built, the converge and test
-  result, the lifecycle readback from `references/policy/pr-lifecycle.md` — draft state,
+  result, the local review outcome when required, the checked commit and CI commands/results plus
+  anything not run and why, the round count and confirmation the review–fix log is in the PR body,
+  the lifecycle readback from `references/policy/pr-lifecycle.md` — draft state,
   requested human reviewer or the missing selection, current review decision, linked ticket, and
   project status — and whether the worktree was removed or retained and why. Never describe a Draft pull
   request as awaiting approval; when it is still Draft because no human reviewer resolved, say that

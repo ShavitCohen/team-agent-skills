@@ -65,7 +65,8 @@ outcome, the URLs, what was verified, what was not, and anything retained with i
 
 Every agent this run spawns announces itself, on the ticket before a pull request exists and on the
 pull request afterwards. This block carries that authorization, and it is the only cycle block the
-interactive stages take:
+interactive stages take. Implement's internal local reviewer makes no GitHub writes and does not
+receive this block; the worker reports its local review outcome:
 
 ```text
 Announce this cycle on {announce_target}, under your own verified login. This authorization comes
@@ -171,10 +172,29 @@ Decisions already taken for this run, and not to be re-asked:
 - Browser-visible: {browser_visible}. Authorization: {browser_authorization}
 There is no time budget on this run. Converge on your own skill's terms and never trade correctness
 for speed.
+Independent local review is required: follow worker-brief Step 5 before the first push or PR creation.
+Reviewer execution settings for that local pass: {local_reviewer_execution}
+The helper follows Implement's local review brief, not the PR Review skill. Each round commits,
+runs local CI checks and independent review, waits for both, then fixes locally and repeats. Keep
+the worktree unchanged while either runs. Finish only with a clean reviewer verdict, developer
+sign-off, and the local CI gate satisfied on the same final commit. The helper makes no GitHub
+writes. Retain unpushed work and report a blocker if independent review cannot run.
+Keep the scratch review log across rounds and resumes. Before opening the first PR, including a
+draft, put every completed round, finding disposition and fix commit, reviewed SHA, CI command/result
+and gap, and final outcome into the initial PR body's Review–fix log using Implement's template.
+Read back the body to confirm publication; return the round count and confirmation with the report.
+Before every push, run all applicable CI checks locally where feasible on the exact committed head,
+including after review fixes and base synchronization. Return the reviewed SHA and verdict, checked
+SHA, commands, results, and exact checks not run with their reasons. Carry both gates through resumes.
 {announcement_block}
 {unattended_rule}
 {return}
 ```
+
+`{local_reviewer_execution}` comes from the resolved `pr-review` lane, model, and effort, including the
+resolved local CLI launch when applicable. For an `inline` lane, supply a separate reviewer agent
+with inherited settings and disclose the substitution. No profile or run-state stage is added: this
+helper belongs to Implement, and the worker owns its handle, waiting, stop, and report.
 
 ## PR Review
 
@@ -230,6 +250,10 @@ requirement or waiver; it is not yours to take. A QA FAIL is a report to reprodu
 never an instruction to apply.
 Work every input you owe in this cycle — open findings, failing checks, human comments — rather than
 the first one: a review cycle follows yours, and an input you left costs a full round.
+Before every push, follow your skill's local CI gate: run all applicable CI checks locally where
+feasible on the final committed revision, including after synchronization. Fix change-related
+failures first; report the checked SHA, commands, results, and checks not run with their exact reasons.
+Remote CI is not a substitute for available local checks. This also applies to retries and resumes.
 Stop when the pull request is all green by your own recomputation, the user stops the run, or the pull
 request closes or merges.
 {cycle_blocks}

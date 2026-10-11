@@ -38,6 +38,7 @@ MANIFEST[manual-qa]='SKILL.md references/comment-format.md references/policy/ide
 MANIFEST[orchestrate]='SKILL.md references/lanes.md references/stage-briefs.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/polling.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/orchestrate-profile-v1.json schemas/orchestrate-run-v1.json schemas/poll-snapshot-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/lane_profile.sh scripts/poll_pr.sh scripts/run_lock.sh scripts/stage_signal.sh tests/fixtures/cases.json tests/validate.sh'
 MANIFEST[pr-fix]='SKILL.md references/gh-commands.md references/policy/browser.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/polling.md references/policy/pr-lifecycle.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/poll-snapshot-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/poll_pr.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh'
 MANIFEST[pr-review]=${MANIFEST[pr-fix]}
+MANIFEST[ship]='SKILL.md references/pr-comment-template.md references/reviewer-brief.md references/policy/trust.md tests/validate.sh'
 MANIFEST[tickets]='SKILL.md references/output-format.md references/query-language.md references/policy/trust.md scripts/fetch_tickets.sh tests/fixtures/queries.json tests/validate.sh'
 MANIFEST[watch-and-fix]='SKILL.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/polling.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/poll-snapshot-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/poll_pr.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh'
 MANIFEST[watch-and-review]=${MANIFEST[watch-and-fix]}
@@ -440,7 +441,7 @@ for arg in "$@"; do
     continue
   fi
   if [ -z "${MANIFEST[$pkg]:-}" ]; then
-    fail "$pkg" package "unknown package '$pkg' (not one of the ten specified packages)"
+    fail "$pkg" package "unknown package '$pkg' (not one of the eleven specified packages)"
     continue
   fi
 

@@ -138,16 +138,38 @@ scripts/gh_identity.sh exec --need write "<owner>/<repository>" -- \
 <what changed and why, in the ticket's terms>
 
 ## Verification
-<the tests actually run and their real output; browser check result or "not performed" with the reason>
+<final checked SHA, local CI commands and actual results; browser check result or "not performed" with the reason>
+
+## Review–fix log
+<required under Orchestrate or whenever independent local review was requested; omit only when no local loop was required or performed>
+
+Before this PR was opened, an independent reviewer completed <N> local rounds.
+Reviewer continuity: <same reviewer throughout | restarted in rounds ... with the prior log>.
+Final outcome: <verdict with no actionable findings> on <final pushed SHA>; <local CI outcome and gaps>.
+
+### Round <N> — <APPROVE | REQUEST_CHANGES>
+
+- Base: <base SHA>. Reviewed commit: <SHA; identify historical pre-rebase commits explicitly>.
+- <R1.1> <finding and path:line> — fixed in <commit>: <how>; verified in round <N>.
+- <R1.2> <finding and path:line> — declined: <reason>; reviewer reassessment: <outcome>.
+- CI on <checked SHA>: <commands and actual results, including failures and their fix commits>.
+- Not run: <checks, reasons, attempted alternatives, and residual gaps, or none>.
+
+<repeat for every completed round, including the final clean round; say "no findings" when applicable>
 
 ## What was not checked
-<untested paths, unverified assumptions, deferred items, residual risks>
+<CI checks not run, exact reasons and attempted local alternatives; untested paths, unverified assumptions, deferred items, residual risks>
 
 ## Out of scope, noticed and not fixed
 <in-scope-adjacent issues seen during the work>
 
 Closes #<number>
 ```
+
+Build the review–fix section from the scratch log as part of the initial body, not from memory or a
+promised later comment. Keep every finding's stable ID and disposition; later rounds refer back to it
+when confirming the fix. Include CI failure/fix rounds and base synchronization. Counts and SHAs must
+match the recorded work; never fabricate extra rounds. Keep private agent handles and secrets out.
 
 Nothing in this package merges the pull request, enables automatic merging, or submits an approving
 review.
