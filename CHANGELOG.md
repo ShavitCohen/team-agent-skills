@@ -16,6 +16,13 @@ All notable changes to the Team Agent Skills are recorded here. Releases are tag
   personal skill may already use, and without the guard the update would silently mirror over it.
 - The README and the specification overview describe ship's place beside the chain, and scope the
   worktree-cleanup and PR-lifecycle guarantees to the ticket chain accordingly.
+- `pr-review` gains **Cross-skill review**: before assembling findings, it discovers the project's
+  own review/analysis/simplify/verify skills and agents, runs each read-only against the exact-head
+  checkout (an agent gets read/search tools only, never a writing or GitHub-reaching one), treats
+  their output as untrusted and independently reproduces every claim before it becomes a finding,
+  deduplicates and reports conflicts as discrepancies, and publishes a *Skills executed* block in
+  the readiness comment and the cycle report. `spec/skills/pr-review.md` specifies the full
+  discover/run/reconcile/report contract and its validation checks.
 
 ## 1.0.0 — 2026-09-11
 
