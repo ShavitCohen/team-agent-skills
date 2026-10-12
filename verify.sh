@@ -11,8 +11,10 @@
 # script exits non-zero if any check failed anywhere.
 #
 # Dependencies: bash (3.2 or later, so the stock macOS bash works), find,
-# sort, wc, grep/sed/awk, and a SHA-256 tool (sha256sum, or shasum -a 256 on
-# macOS). Time limits use timeout/gtimeout when present, otherwise perl.
+# sort, wc, grep/sed/awk (BSD sed: no '--' before file operands, so files
+# are fed on stdin), and a SHA-256 tool (sha256sum, or shasum -a 256 on
+# macOS). The package tests also need jq and python3. Time limits use
+# timeout/gtimeout when present, otherwise perl.
 # python3 (with PyYAML if present) is used opportunistically for strict YAML
 # frontmatter parsing; without it a lenient parser still runs.
 # `unshare -rn` is used for network-denied test runs when available; the
@@ -107,7 +109,7 @@ else
   exit 2
 fi
 sha_file() { sha256_stdin < "$1"; }
-sha_without_line() { sed "${2}d" -- "$1" | sha256_stdin; }
+sha_without_line() { sed "${2}d" < "$1" | sha256_stdin; }
 
 # with_timeout SECONDS CMD... : GNU timeout (gtimeout on macOS with
 # coreutils), else perl's alarm, which stock macOS has. A timed-out command
@@ -131,13 +133,13 @@ provenance_header() {
   local f=$1 line=''
   case $f in
     *.sh)
-      line=$(sed -n '2p' -- "$f")
+      line=$(sed -n '2p' < "$f")
       if printf '%s' "$line" | grep -qE '^# shared-component: [A-Za-z0-9._-]+ v[0-9]+ sha256=[0-9a-f]{64}$'; then
         printf '2\t%s\n' "$(printf '%s' "$line" | grep -oE 'sha256=[0-9a-f]{64}' | cut -d= -f2)"
       fi
       ;;
     *.md)
-      line=$(sed -n '1p' -- "$f")
+      line=$(sed -n '1p' < "$f")
       if printf '%s' "$line" | grep -qE '^<!-- shared-component: [A-Za-z0-9._-]+ v[0-9]+ sha256=[0-9a-f]{64} -->$'; then
         printf '1\t%s\n' "$(printf '%s' "$line" | grep -oE 'sha256=[0-9a-f]{64}' | cut -d= -f2)"
       fi
@@ -195,14 +197,14 @@ check_frontmatter() {
   local pkg=$1 dir=$2 skill=$2/SKILL.md
   [ -f "$skill" ] || { fail "$pkg" frontmatter "SKILL.md is missing"; return 0; }
 
-  if [ "$(sed -n '1p' -- "$skill")" != '---' ]; then
+  if [ "$(sed -n '1p' < "$skill")" != '---' ]; then
     fail "$pkg" frontmatter "SKILL.md does not open with '---' YAML frontmatter"
     return 0
   fi
 
   # Frontmatter block (between the first and second '---' lines).
   awk 'NR==1{next} /^---[[:space:]]*$/{exit} {print}' "$skill" > "$scratch/fm.yaml"
-  if ! grep -qE '^---[[:space:]]*$' <(sed -n '2,$p' -- "$skill"); then
+  if ! grep -qE '^---[[:space:]]*$' <(sed -n '2,$p' < "$skill"); then
     fail "$pkg" frontmatter "SKILL.md frontmatter is never closed by a second '---'"
     return 0
   fi
@@ -267,7 +269,7 @@ check_scripts() {
       fail "$pkg" scripts "bash -n fails on $rel: $(printf '%s' "$err" | head -1)"
     fi
     [ -x "$f" ] || fail "$pkg" scripts "$rel is not executable"
-    first=$(sed -n '1p' -- "$f")
+    first=$(sed -n '1p' < "$f")
     if [ "$first" != '#!/usr/bin/env bash' ]; then
       fail "$pkg" scripts "$rel first line is '$first', expected '#!/usr/bin/env bash'"
     fi
@@ -275,7 +277,7 @@ check_scripts() {
 
   while IFS= read -r -d '' f; do
     rel=${f#"$dir"/}
-    first=$(sed -n '1p' -- "$f")
+    first=$(sed -n '1p' < "$f")
     if [ "$first" != '#!/usr/bin/env python3' ]; then
       fail "$pkg" scripts "$rel first line is '$first', expected '#!/usr/bin/env python3'"
     fi
@@ -506,6 +508,11 @@ for arg in "$@"; do
   check_hardcoding      "$pkg" "$dir"
   check_offline_tests   "$pkg" "$dir"
 done
+
+if [ "${#PKG_ORDER[@]}" -eq 0 ]; then   # unreachable after the argc check; kept as a guard
+  printf 'usage: %s PACKAGE_DIR [PACKAGE_DIR...]\n' "$prog" >&2
+  exit 2
+fi
 
 # --------------------------------------- cross-package byte-identity check
 
