@@ -18,7 +18,13 @@ bad() { fail=$(( fail + 1 )); printf '  FAIL  %s\n' "$*"; }
 
 command -v python3 >/dev/null 2>&1 || { printf '%s: python3 is required\n' "$prog" >&2; exit 2; }
 command -v jq >/dev/null 2>&1 || { printf '%s: jq is required\n' "$prog" >&2; exit 2; }
-command -v sha256sum >/dev/null 2>&1 || { printf '%s: sha256sum is required\n' "$prog" >&2; exit 2; }
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256_stdin() { sha256sum | cut -d' ' -f1; }
+elif command -v shasum >/dev/null 2>&1; then   # stock macOS
+  sha256_stdin() { shasum -a 256 | cut -d' ' -f1; }
+else
+  printf '%s: sha256sum or shasum is required\n' "$prog" >&2; exit 2
+fi
 
 # Fixture trees stand in for a user's own state directory, so build them with the
 # permissions the scripts require rather than whatever umask the caller happens to have.
@@ -31,7 +37,10 @@ printf 'this file must not change\n' > "$safe_work/project/keep.txt"
 
 tree_hash() {
   {
-    find "$1" \( -type f -o -type d -o -type l \) -printf '%p %y\n' 2>/dev/null
+    # Portable stand-in for GNU find -printf '%p %y' (BSD find has no -printf).
+    find "$1" -type f -exec printf '%s f\n' {} + 2>/dev/null
+    find "$1" -type d -exec printf '%s d\n' {} + 2>/dev/null
+    find "$1" -type l -exec printf '%s l\n' {} + 2>/dev/null
     find "$1" -type f -exec cksum {} + 2>/dev/null
   } | LC_ALL=C sort | cksum
 }
@@ -240,8 +249,8 @@ component_body_hash() {
   # component_body_hash FILE — the file with its provenance header line removed:
   # line 1 for Markdown, line 2 for scripts and schemas.
   case $1 in
-    *.md) sed '1d' "$1" | sha256sum | cut -d' ' -f1 ;;
-    *)    sed '2d' "$1" | sha256sum | cut -d' ' -f1 ;;
+    *.md) sed '1d' "$1" | sha256_stdin ;;
+    *)    sed '2d' "$1" | sha256_stdin ;;
   esac
 }
 
@@ -412,7 +421,10 @@ case_tree_hash() {
   local dir=$1
   if [ ! -d "$dir" ]; then printf 'absent'; return 0; fi
   {
-    find "$dir" \( -type f -o -type d -o -type l \) -printf '%p %y\n' 2>/dev/null
+    # Portable stand-in for GNU find -printf '%p %y' (BSD find has no -printf).
+    find "$dir" -type f -exec printf '%s f\n' {} + 2>/dev/null
+    find "$dir" -type d -exec printf '%s d\n' {} + 2>/dev/null
+    find "$dir" -type l -exec printf '%s l\n' {} + 2>/dev/null
     find "$dir" -type f -exec cksum {} + 2>/dev/null
   } | LC_ALL=C sort | cksum
 }
