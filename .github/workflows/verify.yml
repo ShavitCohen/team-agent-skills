@@ -1,0 +1,67 @@
+# Runs the repository's own checks on every pull request to main and every
+# push to main: ./sync.sh writes the shared components into the packages,
+# ./verify.sh skills/* checks them (failing on any copy that drifts from its
+# master under shared/) and runs each package's tests/validate.sh, and
+# tests/shared-sources.sh checks sync, drift detection and install. No secrets
+# and read-only permissions, so pull requests from forks run safely.
+# Reproduce locally with: ./sync.sh && ./verify.sh skills/* && tests/shared-sources.sh
+name: verify
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify-os:
+    name: verify (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Ensure rsync
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            # The system rsync may be openrsync, which lacks options the tests use.
+            brew install rsync
+          elif ! command -v rsync >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y rsync
+          fi
+          rsync --version | head -1
+      - name: ./sync.sh
+        run: ./sync.sh
+      - name: ./verify.sh skills/* (fails on shared-component drift)
+        run: ./verify.sh skills/*
+      - name: tests/shared-sources.sh
+        run: tests/shared-sources.sh
+
+  # One stable check name, `verify`, for branch protection: green only when
+  # every runner in the matrix passed.
+  verify:
+    name: verify
+    needs: verify-os
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All runners passed
+        env:
+          RESULT: ${{ needs.verify-os.result }}
+        run: |
+          echo "matrix result: $RESULT"
+          test "$RESULT" = success

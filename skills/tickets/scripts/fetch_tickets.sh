@@ -60,14 +60,17 @@ cmd_parse() {
 
   # Phrase-level normalization first, so multi-word forms collapse to one token
   # and never leave an orphan word behind in the free-text remainder.
+  # Word boundaries are spelled out ((^|[^A-Za-z0-9_]) ... ([^A-Za-z0-9_]|$))
+  # because BSD sed has no \b. Each pass consumes the delimiter, so adjacent
+  # filler words need the :a/ta loop.
   norm=$(printf '%s' "$raw" | sed -E '
-    s/,/ /g
-    s/[Nn]o(t)?[ -]+(epics?|parents?)/noepics/g
-    s/[Ww]ithout[ -]+(epics?|parents?)/noepics/g
-    s/[Ss]print[ -]+([0-9]+)/S\1/g
-    s/\b(only|of|my|show|list|the|please|in|for|me)\b//g
-    s/\b[Tt]ickets?\b//g
-    s/\b[Ii]ssues?\b//g')
+s/,/ /g
+s/[Nn]o(t)?[ -]+(epics?|parents?)/noepics/g
+s/[Ww]ithout[ -]+(epics?|parents?)/noepics/g
+s/[Ss]print[ -]+([0-9]+)/S\1/g
+:a
+s/(^|[^A-Za-z0-9_])(only|of|my|show|list|the|please|in|for|me|[Tt]ickets?|[Ii]ssues?)([^A-Za-z0-9_]|$)/\1\3/
+ta')
 
   for tok in $norm; do
     low=$(printf '%s' "$tok" | tr '[:upper:]' '[:lower:]')

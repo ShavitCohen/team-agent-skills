@@ -85,7 +85,7 @@ fi
 read -r epath epkgs < <(entries | head -1)
 epkg=${epkgs%% *}
 printf '\nhand edit\n' >> "$t1/skills/$epkg/$epath"
-before=$(cd "$t1" && find . -type f -not -path './.git/*' -exec sha256sum {} + | sort)
+before=$(cd "$t1" && find . -type f -not -path './.git/*' -exec cksum {} + | sort)  # POSIX cksum: portable
 if "$t1/verify.sh" "$t1"/skills/* >"$work/v2.log" 2>&1; then
   bad "verify.sh fails on a hand-edited copy"
 else
@@ -95,7 +95,7 @@ else
     bad "verify.sh fails on a hand-edited copy, naming file and package"; grep '^FAIL' "$work/v2.log" | head -5 | sed 's/^/      /'
   fi
 fi
-after=$(cd "$t1" && find . -type f -not -path './.git/*' -exec sha256sum {} + | sort)
+after=$(cd "$t1" && find . -type f -not -path './.git/*' -exec cksum {} + | sort)  # POSIX cksum: portable
 if [ "$before" = "$after" ]; then ok "verify.sh is read-only"; else bad "verify.sh is read-only"; fi
 
 # --- AC: install from a raw copy yields self-contained packages --------------
@@ -128,6 +128,7 @@ if grep -q 'warning: package clean-memory not found' "$work/warn.log"; then
 else
   bad "sync.sh warns on stderr, naming a missing package"
 fi
+cp "$t3/shared/manifest.tsv" "$work/manifest.orig"
 for unsafe in '../escape.md' '/abs.md' 'references/../../x.md'; do
   printf '%s\tship\r\n' "$unsafe" >> "$t3/shared/manifest.tsv"
   s_rc=0; "$t3/sync.sh" --root "$part" >/dev/null 2>&1 || s_rc=$?
@@ -137,7 +138,7 @@ for unsafe in '../escape.md' '/abs.md' 'references/../../x.md'; do
   else
     bad "sync.sh and verify.sh reject manifest path $unsafe (sync $s_rc, verify $v_rc)"
   fi
-  sed -i '$d' "$t3/shared/manifest.tsv"
+  cp "$work/manifest.orig" "$t3/shared/manifest.tsv"
 done
 printf 'schemas/cases-v1.json\tship\r\n' >> "$t3/shared/manifest.tsv"
 "$t3/sync.sh" --root "$part" >/dev/null 2>&1
@@ -155,9 +156,9 @@ else
 fi
 leak=0
 while IFS=$'\t' read -r path _; do
-  grep -qF "$path" <(grep -E '^MANIFEST\[' "$REPO/verify.sh") && { leak=1; printf '      verify.sh MANIFEST still lists %s\n' "$path"; }
+  grep -qF " $path " <(sed -n "/^manifest_for()/,/^}/p" "$REPO/verify.sh" | tr "'" ' ') && { leak=1; printf '      verify.sh manifest_for still lists %s\n' "$path"; }
 done < <(entries)
-res "$leak" "verify.sh MANIFEST lists no shared file"
+res "$leak" "verify.sh per-package lists name no shared file"
 
 # --- AC: guide of five lines or fewer, mentions the installer ---------------
 guide=$(awk '/^## Shared components/{f=1;next} /^## /{f=0} f && NF' "$REPO/README.md")
