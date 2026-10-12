@@ -43,19 +43,28 @@ if [ -d /proc ] || command -v lsof >/dev/null 2>&1; then DETECTION_AVAILABLE=tru
 
 holders_of() {
   # Print PIDs holding PATH open or using it as a working directory.
-  local path=$1 pid link
+  local path=$1 pid link phys
+  # Match against the physical path too: a path given through a symlink
+  # (macOS /var -> /private/var) never equals a resolved working directory.
+  phys=$( (cd "$path" 2>/dev/null && pwd -P) || printf '%s' "$path")
   if [ -d /proc ]; then
     for link in /proc/[0-9]*; do
       pid=${link#/proc/}
       local cwd
       cwd=$(readlink -f "$link/cwd" 2>/dev/null || printf '')
       case $cwd in
-        "$path" | "$path"/*) printf '%s\n' "$pid" ;;
+        "$path" | "$path"/* | "$phys" | "$phys"/*) printf '%s\n' "$pid" ;;
       esac
     done
   fi
   if have lsof; then
-    lsof -t -- "$path" 2>/dev/null || true
+    # No '--' (not every lsof accepts it). Working directories are matched by
+    # name as well, against both the given and the physical path.
+    lsof -t "$path" 2>/dev/null || true
+    lsof -nP -d cwd -Fpn 2>/dev/null | awk -v a="$path" -v b="$phys" '
+      /^p/ { pid = substr($0, 2) }
+      /^n/ { n = substr($0, 2)
+             if (n == a || n == b || index(n, a "/") == 1 || index(n, b "/") == 1) print pid }' || true
   fi
 }
 

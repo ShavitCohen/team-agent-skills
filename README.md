@@ -1,5 +1,7 @@
 # Team Agent Skills
 
+[![verify](https://github.com/ShavitCohen/team-agent-skills/actions/workflows/verify.yml/badge.svg?branch=main)](https://github.com/ShavitCohen/team-agent-skills/actions/workflows/verify.yml)
+
 Eleven harness-agnostic agent skills that take a ticket — or work with no ticket at all — from idea
 to merge-ready, and a person still makes every merge.
 
@@ -128,6 +130,12 @@ offline test suite:
 ```
 
 `install.sh` runs it automatically after copying.
+
+CI runs the same command on every pull request to `main` and every push to `main`, on Ubuntu and
+macOS, and reports it as the `verify` check. To reproduce a CI result locally, run
+`./verify.sh skills/*` from the repository root: it needs only bash (3.2 or later), the usual
+POSIX tools, `jq`, `python3`, and `sha256sum` or `shasum`. It prints the network sandbox it used
+(`unshare -rn` where available, otherwise none) and ends with a per-package summary table.
 
 ## Repository layout
 
