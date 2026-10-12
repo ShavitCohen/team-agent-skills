@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shared-component: run_lock.sh v2 sha256=7abf6b4303ad4b07d1890b45ded2357ae2d1a9f5941319c9a8ee19de621a6d8b
+# shared-component: run_lock.sh v2 sha256=26720dfcbfb1bfaca88b7aee4642763ce2707c5b017f3fed8548098098e39890
 # Run locks, lease liveness, run registry, worktree paths, and safe removal.
 # Shared by every skill in this family so that locking, registration, and cleanup
 # behave identically and Clean Memory can read the same records.
@@ -627,12 +627,15 @@ cmd_sem_release() {
 
 find_run_for_worktree() {
   local root=$1 target=$2
-  local dir entry
+  local dir entry wt
   for dir in "$root"/runs/*; do
     [ -d "$dir" ] || continue
     for entry in "$dir"/*.json; do
       [ -f "$entry" ] || continue
-      if [ "$(jq -r '.worktree // ""' "$entry")" = "$target" ]; then
+      # Compare physical paths: the registry may hold a path through a
+      # symlink (macOS /var -> /private/var) while the target is resolved.
+      wt=$(jq -r '.worktree // ""' "$entry")
+      if [ "$wt" = "$target" ] || { [ -n "$wt" ] && [ -d "$wt" ] && [ "$(cd -- "$wt" && pwd -P)" = "$target" ]; }; then
         cat "$entry"
         return 0
       fi

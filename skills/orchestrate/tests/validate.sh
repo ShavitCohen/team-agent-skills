@@ -318,6 +318,7 @@ EOF
     ok "$id"
   else
     bad "$id —$problems"
+    printf '        stdout: %s\n' "$(printf '%s' "$stdout" | head -n 5 | tr '\n' ' ' | cut -c1-400)"
     printf '        stderr: %s\n' "$(printf '%s' "$stderr" | head -n 3 | tr '\n' ' ')"
   fi
 done
