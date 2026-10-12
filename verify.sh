@@ -478,6 +478,10 @@ check_offline_tests() {
   ( cd "$dir" && with_timeout 180 ${ISOLATE[@]+"${ISOLATE[@]}"} ./tests/validate.sh ) > "$log" 2>&1 || rc=$?
   if [ "$rc" -ne 0 ]; then
     fail "$pkg" offline-tests "tests/validate.sh exited $rc; last lines: $(tail -3 "$log" | tr '\n' ' | ' | cut -c1-200)"
+    # Full test log, so a CI failure names the failing cases.
+    printf -- '----- %s tests/validate.sh output -----\n' "$pkg"
+    sed 's/^/  | /' < "$log"
+    printf -- '----- end %s -----\n' "$pkg"
   fi
 }
 

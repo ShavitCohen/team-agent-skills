@@ -101,7 +101,36 @@ def host_memory():
         out = run(["sysctl", "-n", "hw.memsize"])
         if out and out.isdigit():
             total = int(out)
+    if available is None:
+        available = vm_stat_available()
     return total, available
+
+
+def vm_stat_available():
+    """Available bytes from vm_stat (macOS has no /proc/meminfo), or None.
+
+    Counts free, inactive and speculative pages: memory the kernel can hand
+    out without swapping.
+    """
+    out = run(["vm_stat"])
+    if not out:
+        return None
+    page_size = None
+    pages = {}
+    for line in out.splitlines():
+        if "page size of" in line:
+            for word in line.split():
+                if word.isdigit():
+                    page_size = int(word)
+        elif ":" in line:
+            key, _, value = line.partition(":")
+            value = value.strip().rstrip(".")
+            if value.isdigit():
+                pages[key.strip()] = int(value)
+    wanted = ("Pages free", "Pages inactive", "Pages speculative")
+    if not page_size or "Pages free" not in pages:
+        return None
+    return sum(pages.get(key, 0) for key in wanted) * page_size
 
 
 def free_disk(path):

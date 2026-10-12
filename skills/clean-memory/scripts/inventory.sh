@@ -55,7 +55,16 @@ holders_of() {
     done
   fi
   if have lsof; then
-    lsof -t -- "$path" 2>/dev/null || true
+    # No '--' (not every lsof accepts it). Working directories are matched by
+    # name as well, against both the given and the physical path, because
+    # macOS lsof reports resolved paths (/var -> /private/var).
+    local phys
+    phys=$( (cd "$path" 2>/dev/null && pwd -P) || printf '%s' "$path")
+    lsof -t "$path" 2>/dev/null || true
+    lsof -nP -d cwd -Fpn 2>/dev/null | awk -v a="$path" -v b="$phys" '
+      /^p/ { pid = substr($0, 2) }
+      /^n/ { n = substr($0, 2)
+             if (n == a || n == b || index(n, a "/") == 1 || index(n, b "/") == 1) print pid }' || true
   fi
 }
 
