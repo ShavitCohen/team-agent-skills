@@ -25,12 +25,20 @@ MANIFEST="$REPO_DIR/shared/manifest.tsv"
 
 written=0
 while IFS=$'\t' read -r path pkgs; do
+  path=${path%$'\r'}; pkgs=${pkgs%$'\r'}
   [[ -z "$path" || "$path" == \#* ]] && continue
+  case $path in
+    /*|..|../*|*/..|*/../*)
+      echo "sync.sh: unsafe path in manifest (absolute or ..): $path" >&2; exit 1 ;;
+  esac
   src="$REPO_DIR/shared/$path"
   [[ -f "$src" ]] || { echo "sync.sh: master missing: shared/$path" >&2; exit 1; }
   [[ -n "$pkgs" ]] || { echo "sync.sh: no packages listed for $path" >&2; exit 1; }
   for p in $pkgs; do
-    [[ -d "$ROOT/$p" ]] || continue
+    if [[ ! -d "$ROOT/$p" ]]; then
+      echo "sync.sh: warning: package $p not found under $ROOT; skipped $path" >&2
+      continue
+    fi
     mkdir -p "$ROOT/$p/$(dirname "$path")"
     cp -p -- "$src" "$ROOT/$p/$path"
     written=$((written + 1))

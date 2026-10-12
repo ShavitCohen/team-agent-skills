@@ -56,7 +56,13 @@ if [ ! -f "$SHARED_MANIFEST" ]; then
 fi
 declare -A SHARED_PATHS SHARED_FOR
 while IFS=$'\t' read -r spath spkgs; do
+  spath=${spath%$'\r'}; spkgs=${spkgs%$'\r'}
   case $spath in ''|'#'*) continue ;; esac
+  case $spath in
+    /*|..|../*|*/..|*/../*)
+      printf '%s: unsafe path in shared manifest (absolute or ..): %s\n' "$prog" "$spath" >&2
+      exit 2 ;;
+  esac
   SHARED_PATHS[$spath]=1
   for spkg in $spkgs; do
     SHARED_FOR[$spkg]="${SHARED_FOR[$spkg]:-} $spath"
@@ -112,6 +118,7 @@ provenance_header() {
       ;;
     *.json)
       local hit
+      # shellcheck disable=SC2016 # literal "$comment" JSON key, not a shell expansion
       hit=$(grep -nE '^[[:space:]]*"\$comment": "shared-component: [A-Za-z0-9._-]+ v[0-9]+ sha256=[0-9a-f]{64}",?$' -- "$f" | head -1 || true)
       if [ -n "$hit" ]; then
         printf '%s\t%s\n' "${hit%%:*}" "$(printf '%s' "$hit" | grep -oE 'sha256=[0-9a-f]{64}' | cut -d= -f2)"
@@ -259,10 +266,9 @@ check_scripts() {
 }
 
 check_shared_integrity() {
-  local pkg=$1 dir=$2 f rel hdr lineno declared computed base compname
+  local pkg=$1 dir=$2 f rel hdr lineno declared computed compname
   while IFS= read -r -d '' f; do
     rel=${f#"$dir"/}
-    base=${rel##*/}
     hdr=$(provenance_header "$f")
 
     # Which canonical shared component (if any) is this file a copy of?
@@ -439,7 +445,8 @@ else
 fi
 
 check_offline_tests() {
-  local pkg=$1 dir=$2 rc=0 log=$scratch/validate.$pkg.log
+  local pkg=$1 dir=$2 rc=0
+  local log=$scratch/validate.$pkg.log
   if [ ! -f "$dir/tests/validate.sh" ]; then
     fail "$pkg" offline-tests "tests/validate.sh is missing"
     return 0
