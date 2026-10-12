@@ -5,6 +5,10 @@ All notable changes to the Team Agent Skills are recorded here. Releases are tag
 
 ## 1.1.0 — unreleased
 
+- CI: a `verify` GitHub Actions check runs `./verify.sh skills/*` on Ubuntu and macOS for every
+  pull request to `main` and every push to `main`, with read-only permissions and no secrets.
+  `verify.sh` and the package test suites now also run on stock macOS (bash 3.2, `shasum`, no GNU
+  `timeout` or `find -printf`), and `verify.sh` prints which network sandbox it used.
 - New package: `ship`. It takes any task, ticket or not, from a fresh worktree to a pull request
   that an independent reviewer agent has already approved: the review loop runs locally, round
   after round, before the pull request exists, and the log of every round is posted on the PR. It

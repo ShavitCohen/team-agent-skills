@@ -1,0 +1,51 @@
+# Runs the repository's own checks on every pull request to main and every
+# push to main: ./verify.sh skills/*, which also runs each package's
+# tests/validate.sh. No secrets and read-only permissions, so pull requests
+# from forks run safely. Reproduce locally with: ./verify.sh skills/*
+name: verify
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify-os:
+    name: verify (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: ./verify.sh skills/*
+        run: ./verify.sh skills/*
+
+  # One stable check name, `verify`, for branch protection: green only when
+  # every runner in the matrix passed.
+  verify:
+    name: verify
+    needs: verify-os
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All runners passed
+        env:
+          RESULT: ${{ needs.verify-os.result }}
+        run: |
+          echo "matrix result: $RESULT"
+          test "$RESULT" = success
