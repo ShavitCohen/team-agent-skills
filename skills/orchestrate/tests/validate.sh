@@ -158,7 +158,10 @@ tree_hash() {
   local dir=$1
   if [ ! -d "$dir" ]; then printf 'absent'; return 0; fi
   {
-    find "$dir" \( -type f -o -type d -o -type l \) -printf '%p %y\n' 2>/dev/null
+    # Portable stand-in for GNU find -printf '%p %y' (BSD find has no -printf).
+    find "$dir" -type f -exec printf '%s f\n' {} + 2>/dev/null
+    find "$dir" -type d -exec printf '%s d\n' {} + 2>/dev/null
+    find "$dir" -type l -exec printf '%s l\n' {} + 2>/dev/null
     find "$dir" -type f -exec cksum {} + 2>/dev/null
   } | LC_ALL=C sort | cksum
 }
@@ -315,6 +318,7 @@ EOF
     ok "$id"
   else
     bad "$id —$problems"
+    printf '        stdout: %s\n' "$(printf '%s' "$stdout" | head -n 5 | tr '\n' ' ' | cut -c1-400)"
     printf '        stderr: %s\n' "$(printf '%s' "$stderr" | head -n 3 | tr '\n' ' ')"
   fi
 done

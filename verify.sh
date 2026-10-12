@@ -10,10 +10,15 @@
 # package. Every failure across every supplied package is printed, then the
 # script exits non-zero if any check failed anywhere.
 #
-# Dependencies: bash, coreutils (sha256sum, timeout, find, sort, wc, ...),
-# grep/sed/awk. python3 (with PyYAML if present) is used opportunistically for
-# strict YAML frontmatter parsing; without it a lenient parser still runs.
-# `unshare -rn` is used for network-denied test runs when available.
+# Dependencies: bash (3.2 or later, so the stock macOS bash works), find,
+# sort, wc, grep/sed/awk (BSD sed: no '--' before file operands, so files
+# are fed on stdin), and a SHA-256 tool (sha256sum, or shasum -a 256 on
+# macOS). The package tests also need jq and python3. Time limits use
+# timeout/gtimeout when present, otherwise perl.
+# python3 (with PyYAML if present) is used opportunistically for strict YAML
+# frontmatter parsing; without it a lenient parser still runs.
+# `unshare -rn` is used for network-denied test runs when available; the
+# sandbox mode in use is printed at start-up.
 
 set -euo pipefail
 
@@ -29,19 +34,29 @@ trap 'rm -rf -- "$scratch"' EXIT
 
 # ---------------------------------------------------------------- manifests
 # Authoritative per-package file sets from the specification. Key: basename.
-declare -A MANIFEST
-
-MANIFEST[clean-memory]='SKILL.md references/policy/browser.md references/policy/conventions.md references/policy/handoff.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/inventory-v1.json schemas/shared-state-v1.json scripts/inventory.sh scripts/reclaim.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh'
-MANIFEST[create-clarity]='SKILL.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh'
-MANIFEST[implement]='SKILL.md references/gh-commands.md references/worker-brief.md references/policy/browser.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/pr-lifecycle.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh'
-MANIFEST[manual-qa]='SKILL.md references/comment-format.md references/policy/identity.md references/policy/trust.md schemas/cases-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/k8s_preflight.py scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh'
-MANIFEST[orchestrate]='SKILL.md references/lanes.md references/stage-briefs.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/polling.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/orchestrate-profile-v1.json schemas/orchestrate-run-v1.json schemas/poll-snapshot-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/lane_profile.sh scripts/poll_pr.sh scripts/run_lock.sh scripts/stage_signal.sh tests/fixtures/cases.json tests/validate.sh'
-MANIFEST[pr-fix]='SKILL.md references/gh-commands.md references/policy/browser.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/polling.md references/policy/pr-lifecycle.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/poll-snapshot-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/poll_pr.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh'
-MANIFEST[pr-review]=${MANIFEST[pr-fix]}
-MANIFEST[ship]='SKILL.md references/pr-comment-template.md references/reviewer-brief.md references/policy/trust.md tests/validate.sh'
-MANIFEST[tickets]='SKILL.md references/output-format.md references/query-language.md references/policy/trust.md scripts/fetch_tickets.sh tests/fixtures/queries.json tests/validate.sh'
-MANIFEST[watch-and-fix]='SKILL.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/polling.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/poll-snapshot-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/poll_pr.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh'
-MANIFEST[watch-and-review]=${MANIFEST[watch-and-fix]}
+# Bash 3.2 (stock macOS) has no associative arrays, so lookups are functions.
+manifest_for() { # manifest_for PKG -> prints the file list, or nothing
+  case $1 in
+    clean-memory)
+      printf '%s' 'SKILL.md references/policy/browser.md references/policy/conventions.md references/policy/handoff.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/inventory-v1.json schemas/shared-state-v1.json scripts/inventory.sh scripts/reclaim.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh' ;;
+    create-clarity)
+      printf '%s' 'SKILL.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh' ;;
+    implement)
+      printf '%s' 'SKILL.md references/gh-commands.md references/worker-brief.md references/policy/browser.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/pr-lifecycle.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh' ;;
+    manual-qa)
+      printf '%s' 'SKILL.md references/comment-format.md references/policy/identity.md references/policy/trust.md schemas/cases-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/k8s_preflight.py scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh' ;;
+    orchestrate)
+      printf '%s' 'SKILL.md references/lanes.md references/stage-briefs.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/polling.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/orchestrate-profile-v1.json schemas/orchestrate-run-v1.json schemas/poll-snapshot-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/lane_profile.sh scripts/poll_pr.sh scripts/run_lock.sh scripts/stage_signal.sh tests/fixtures/cases.json tests/validate.sh' ;;
+    pr-fix|pr-review)
+      printf '%s' 'SKILL.md references/gh-commands.md references/policy/browser.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/polling.md references/policy/pr-lifecycle.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/poll-snapshot-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/poll_pr.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh' ;;
+    ship)
+      printf '%s' 'SKILL.md references/pr-comment-template.md references/reviewer-brief.md references/policy/trust.md tests/validate.sh' ;;
+    tickets)
+      printf '%s' 'SKILL.md references/output-format.md references/query-language.md references/policy/trust.md scripts/fetch_tickets.sh tests/fixtures/queries.json tests/validate.sh' ;;
+    watch-and-fix|watch-and-review)
+      printf '%s' 'SKILL.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/polling.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/poll-snapshot-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/poll_pr.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh' ;;
+  esac
+}
 
 # Shared components whose copies must be byte-identical across packages and
 # must carry a provenance header. Policy files are shared by basename.
@@ -49,21 +64,33 @@ SHARED_SCRIPTS='gh_identity.sh run_lock.sh poll_pr.sh'
 SHARED_SCHEMAS='cases-v1.json shared-state-v1.json poll-snapshot-v1.json'
 
 # ------------------------------------------------------------------ reporting
-declare -A PKG_FAILS PKG_INFOS
+# Per-package counters live in variables named after the hex-encoded package
+# name (VF_<hex> / VI_<hex>), which is safe for any directory name.
+pkg_key() { printf '%s' "$1" | od -An -tx1 | tr -d ' \n'; }
+count_get() { # count_get F|I PKG
+  local v
+  v="V$1_$(pkg_key "$2")"
+  printf '%s' "${!v:-0}"
+}
+count_inc() { # count_inc F|I PKG
+  local v
+  v="V$1_$(pkg_key "$2")"
+  eval "$v=\$(( \${$v:-0} + 1 ))"
+}
 TOTAL_FAILS=0
 TOTAL_INFOS=0
 PKG_ORDER=()
 
 fail() { # fail PKG CHECK MESSAGE
   local pkg=$1 check=$2 msg=$3
-  PKG_FAILS[$pkg]=$(( ${PKG_FAILS[$pkg]:-0} + 1 ))
+  count_inc F "$pkg"
   TOTAL_FAILS=$(( TOTAL_FAILS + 1 ))
   printf 'FAIL  [%s] %s: %s\n' "$pkg" "$check" "$msg"
 }
 
 info() { # info PKG CHECK MESSAGE
   local pkg=$1 check=$2 msg=$3
-  PKG_INFOS[$pkg]=$(( ${PKG_INFOS[$pkg]:-0} + 1 ))
+  count_inc I "$pkg"
   TOTAL_INFOS=$(( TOTAL_INFOS + 1 ))
   printf 'info  [%s] %s: %s\n' "$pkg" "$check" "$msg"
 }
@@ -73,21 +100,46 @@ COMP_RECORDS=()
 
 # ------------------------------------------------------------------- helpers
 
-sha_file() { sha256sum -- "$1" | awk '{print $1}'; }
-sha_without_line() { sed "${2}d" -- "$1" | sha256sum | awk '{print $1}'; }
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256_stdin() { sha256sum | awk '{print $1}'; }
+elif command -v shasum >/dev/null 2>&1; then
+  sha256_stdin() { shasum -a 256 | awk '{print $1}'; }
+else
+  printf '%s: need sha256sum or shasum\n' "$prog" >&2
+  exit 2
+fi
+sha_file() { sha256_stdin < "$1"; }
+sha_without_line() { sed "${2}d" < "$1" | sha256_stdin; }
+
+# with_timeout SECONDS CMD... : GNU timeout (gtimeout on macOS with
+# coreutils), else perl's alarm, which stock macOS has. A timed-out command
+# exits 124 (timeout) or 142 (SIGALRM via perl).
+if command -v timeout >/dev/null 2>&1; then
+  TIMEOUT_MODE=timeout
+  with_timeout() { timeout "$@"; }
+elif command -v gtimeout >/dev/null 2>&1; then
+  TIMEOUT_MODE=gtimeout
+  with_timeout() { gtimeout "$@"; }
+elif command -v perl >/dev/null 2>&1; then
+  TIMEOUT_MODE=perl
+  with_timeout() { perl -e 'alarm shift @ARGV; exec @ARGV or die "exec: $!\n"' "$@"; }
+else
+  printf '%s: need timeout, gtimeout or perl\n' "$prog" >&2
+  exit 2
+fi
 
 # Locate a provenance header. Prints "LINENO<TAB>DECLARED_HASH" or nothing.
 provenance_header() {
   local f=$1 line=''
   case $f in
     *.sh)
-      line=$(sed -n '2p' -- "$f")
+      line=$(sed -n '2p' < "$f")
       if printf '%s' "$line" | grep -qE '^# shared-component: [A-Za-z0-9._-]+ v[0-9]+ sha256=[0-9a-f]{64}$'; then
         printf '2\t%s\n' "$(printf '%s' "$line" | grep -oE 'sha256=[0-9a-f]{64}' | cut -d= -f2)"
       fi
       ;;
     *.md)
-      line=$(sed -n '1p' -- "$f")
+      line=$(sed -n '1p' < "$f")
       if printf '%s' "$line" | grep -qE '^<!-- shared-component: [A-Za-z0-9._-]+ v[0-9]+ sha256=[0-9a-f]{64} -->$'; then
         printf '1\t%s\n' "$(printf '%s' "$line" | grep -oE 'sha256=[0-9a-f]{64}' | cut -d= -f2)"
       fi
@@ -122,8 +174,6 @@ split_md_fences() {
 
 check_manifest() {
   local pkg=$1 dir=$2 expected=$3 f rel
-  declare -A want
-  for f in $expected; do want[$f]=1; done
 
   for f in $expected; do
     [ -f "$dir/$f" ] || fail "$pkg" manifest "missing specified file: $f"
@@ -132,7 +182,7 @@ check_manifest() {
   while IFS= read -r -d '' f; do
     rel=${f#"$dir"/}
     [ "$rel" = "agents/openai.yaml" ] && continue   # tolerated runtime metadata
-    if [ -z "${want[$rel]:-}" ]; then
+    if ! case " $expected " in *" $rel "*) true ;; *) false ;; esac; then
       case ${rel##*/} in
         [Rr][Ee][Aa][Dd][Mm][Ee]*|[Cc][Hh][Aa][Nn][Gg][Ee][Ll][Oo][Gg]*|[Ii][Nn][Ss][Tt][Aa][Ll][Ll]*)
           fail "$pkg" manifest "forbidden README/changelog/install file: $rel" ;;
@@ -147,14 +197,14 @@ check_frontmatter() {
   local pkg=$1 dir=$2 skill=$2/SKILL.md
   [ -f "$skill" ] || { fail "$pkg" frontmatter "SKILL.md is missing"; return 0; }
 
-  if [ "$(sed -n '1p' -- "$skill")" != '---' ]; then
+  if [ "$(sed -n '1p' < "$skill")" != '---' ]; then
     fail "$pkg" frontmatter "SKILL.md does not open with '---' YAML frontmatter"
     return 0
   fi
 
   # Frontmatter block (between the first and second '---' lines).
   awk 'NR==1{next} /^---[[:space:]]*$/{exit} {print}' "$skill" > "$scratch/fm.yaml"
-  if ! grep -qE '^---[[:space:]]*$' <(sed -n '2,$p' -- "$skill"); then
+  if ! grep -qE '^---[[:space:]]*$' <(sed -n '2,$p' < "$skill"); then
     fail "$pkg" frontmatter "SKILL.md frontmatter is never closed by a second '---'"
     return 0
   fi
@@ -219,7 +269,7 @@ check_scripts() {
       fail "$pkg" scripts "bash -n fails on $rel: $(printf '%s' "$err" | head -1)"
     fi
     [ -x "$f" ] || fail "$pkg" scripts "$rel is not executable"
-    first=$(sed -n '1p' -- "$f")
+    first=$(sed -n '1p' < "$f")
     if [ "$first" != '#!/usr/bin/env bash' ]; then
       fail "$pkg" scripts "$rel first line is '$first', expected '#!/usr/bin/env bash'"
     fi
@@ -227,13 +277,13 @@ check_scripts() {
 
   while IFS= read -r -d '' f; do
     rel=${f#"$dir"/}
-    first=$(sed -n '1p' -- "$f")
+    first=$(sed -n '1p' < "$f")
     if [ "$first" != '#!/usr/bin/env python3' ]; then
       fail "$pkg" scripts "$rel first line is '$first', expected '#!/usr/bin/env python3'"
     fi
     [ -x "$f" ] || fail "$pkg" scripts "$rel is not executable"
     rc=0
-    timeout 30 "$f" --help > /dev/null 2> "$scratch/pyhelp.err" || rc=$?
+    with_timeout 30 "$f" --help > /dev/null 2> "$scratch/pyhelp.err" || rc=$?
     if [ "$rc" -ne 0 ]; then
       fail "$pkg" scripts "$rel --help exited $rc: $(head -1 "$scratch/pyhelp.err" 2>/dev/null || true)"
     fi
@@ -409,11 +459,15 @@ check_hardcoding() {
 
 # Network isolation for the offline test runs.
 ISOLATE=()
-if unshare -rn true 2>/dev/null; then
+if command -v unshare >/dev/null 2>&1 && unshare -rn true 2>/dev/null; then
   ISOLATE=(unshare -rn)
+  SANDBOX_MODE='unshare-rn (network isolated)'
 else
+  SANDBOX_MODE='none (unshare -rn unavailable; tests run WITHOUT network isolation)'
   printf 'note: unshare -rn unavailable; tests run WITHOUT network isolation\n'
 fi
+printf 'sandbox: %s\n' "$SANDBOX_MODE"
+printf 'environment: %s, bash %s, timeout via %s\n' "$(uname -s)" "$BASH_VERSION" "$TIMEOUT_MODE"
 
 check_offline_tests() {
   local pkg=$1 dir=$2 rc=0 log=$scratch/validate.$pkg.log
@@ -421,9 +475,13 @@ check_offline_tests() {
     fail "$pkg" offline-tests "tests/validate.sh is missing"
     return 0
   fi
-  ( cd "$dir" && timeout 180 ${ISOLATE[@]+"${ISOLATE[@]}"} ./tests/validate.sh ) > "$log" 2>&1 || rc=$?
+  ( cd "$dir" && with_timeout 180 ${ISOLATE[@]+"${ISOLATE[@]}"} ./tests/validate.sh ) > "$log" 2>&1 || rc=$?
   if [ "$rc" -ne 0 ]; then
     fail "$pkg" offline-tests "tests/validate.sh exited $rc; last lines: $(tail -3 "$log" | tr '\n' ' | ' | cut -c1-200)"
+    # Full test log, so a CI failure names the failing cases.
+    printf -- '----- %s tests/validate.sh output -----\n' "$pkg"
+    sed 's/^/  | /' < "$log"
+    printf -- '----- end %s -----\n' "$pkg"
   fi
 }
 
@@ -433,19 +491,19 @@ for arg in "$@"; do
   dir=${arg%/}
   pkg=${dir##*/}
   PKG_ORDER+=("$pkg")
-  PKG_FAILS[$pkg]=${PKG_FAILS[$pkg]:-0}
   printf '\n=== %s (%s)\n' "$pkg" "$dir"
 
   if [ ! -d "$dir" ]; then
     fail "$pkg" package "directory does not exist: $dir"
     continue
   fi
-  if [ -z "${MANIFEST[$pkg]:-}" ]; then
+  manifest=$(manifest_for "$pkg")
+  if [ -z "$manifest" ]; then
     fail "$pkg" package "unknown package '$pkg' (not one of the eleven specified packages)"
     continue
   fi
 
-  check_manifest        "$pkg" "$dir" "${MANIFEST[$pkg]}"
+  check_manifest        "$pkg" "$dir" "$manifest"
   check_frontmatter     "$pkg" "$dir"
   check_scripts         "$pkg" "$dir"
   check_shared_integrity "$pkg" "$dir"
@@ -454,6 +512,11 @@ for arg in "$@"; do
   check_hardcoding      "$pkg" "$dir"
   check_offline_tests   "$pkg" "$dir"
 done
+
+if [ "${#PKG_ORDER[@]}" -eq 0 ]; then   # unreachable after the argc check; kept as a guard
+  printf 'usage: %s PACKAGE_DIR [PACKAGE_DIR...]\n' "$prog" >&2
+  exit 2
+fi
 
 # --------------------------------------- cross-package byte-identity check
 
@@ -490,12 +553,14 @@ printf 'checked %s shared-component copies across %s packages\n' "${#COMP_RECORD
 printf '\n=== summary\n'
 overall=0
 for pkg in "${PKG_ORDER[@]}"; do
-  if [ "${PKG_FAILS[$pkg]}" -eq 0 ]; then
-    printf 'PASS  %-18s (%s informational)\n' "$pkg" "${PKG_INFOS[$pkg]:-0}"
+  nf=$(count_get F "$pkg"); ni=$(count_get I "$pkg")
+  if [ "$nf" -eq 0 ]; then
+    printf 'PASS  %-18s (%s informational)\n' "$pkg" "$ni"
   else
-    printf 'FAIL  %-18s %s failure(s), %s informational\n' "$pkg" "${PKG_FAILS[$pkg]}" "${PKG_INFOS[$pkg]:-0}"
+    printf 'FAIL  %-18s %s failure(s), %s informational\n' "$pkg" "$nf" "$ni"
     overall=1
   fi
 done
 printf 'total: %s failure(s), %s informational note(s)\n' "$TOTAL_FAILS" "$TOTAL_INFOS"
+printf 'sandbox: %s\n' "$SANDBOX_MODE"
 exit "$overall"

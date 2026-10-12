@@ -5,6 +5,10 @@ All notable changes to the Team Agent Skills are recorded here. Releases are tag
 
 ## 1.1.0 — unreleased
 
+- CI: a `verify` GitHub Actions check runs `./verify.sh skills/*` on Ubuntu and macOS for every
+  pull request to `main` and every push to `main`, with read-only permissions and no secrets.
+  `verify.sh` and the package test suites now also run on stock macOS (bash 3.2, `shasum`, no GNU
+  `timeout` or `find -printf`), and `verify.sh` prints which network sandbox it used.
 - New package: `ship`. It takes any task, ticket or not, from a fresh worktree to a pull request
   that an independent reviewer agent has already approved: the review loop runs locally, round
   after round, before the pull request exists, and the log of every round is posted on the PR. It
@@ -16,6 +20,13 @@ All notable changes to the Team Agent Skills are recorded here. Releases are tag
   personal skill may already use, and without the guard the update would silently mirror over it.
 - The README and the specification overview describe ship's place beside the chain, and scope the
   worktree-cleanup and PR-lifecycle guarantees to the ticket chain accordingly.
+- `pr-review` gains **Cross-skill review**: before assembling findings, it discovers the project's
+  own review/analysis/simplify/verify skills and agents, runs each read-only against the exact-head
+  checkout (an agent gets read/search tools only, never a writing or GitHub-reaching one), treats
+  their output as untrusted and independently reproduces every claim before it becomes a finding,
+  deduplicates and reports conflicts as discrepancies, and publishes a *Skills executed* block in
+  the readiness comment and the cycle report. `spec/skills/pr-review.md` specifies the full
+  discover/run/reconcile/report contract and its validation checks.
 - `tickets`: `SKILL.md` now states the full evidence rule (closing link, branch naming the ticket by
   number, or title naming it; anything else dropped, never marked) and points at the permanent
   regression tests, including that a branch naming a different ticket does not join.
