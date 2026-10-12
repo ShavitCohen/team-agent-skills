@@ -5,6 +5,10 @@ All notable changes to the Team Agent Skills are recorded here. Releases are tag
 
 ## 1.1.0 — unreleased
 
+- Shared policies, scripts and schemas are defined once under `shared/`, with `shared/manifest.tsv`
+  mapping each to the packages that ship it. `sync.sh` generates the copies and `install.sh` runs it;
+  the copies are no longer committed, so a raw git copy of `skills/` needs the installer. `verify.sh`
+  reads the same manifest and fails on any copy that differs from its master, naming file and package.
 - New package: `ship`. It takes any task, ticket or not, from a fresh worktree to a pull request
   that an independent reviewer agent has already approved: the review loop runs locally, round
   after round, before the pull request exists, and the log of every round is posted on the PR. It

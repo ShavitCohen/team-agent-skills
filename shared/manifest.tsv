@@ -1,0 +1,16 @@
+# Shared components: master path under shared/ <TAB> packages that ship a copy at the same path.
+# sync.sh writes the copies; verify.sh fails if an installed copy differs from its master.
+references/policy/browser.md	clean-memory implement pr-fix pr-review
+references/policy/conventions.md	clean-memory create-clarity implement orchestrate pr-fix pr-review watch-and-fix watch-and-review
+references/policy/handoff.md	clean-memory create-clarity implement orchestrate pr-fix pr-review watch-and-fix watch-and-review
+references/policy/identity.md	create-clarity implement manual-qa orchestrate pr-fix pr-review watch-and-fix watch-and-review
+references/policy/polling.md	orchestrate pr-fix pr-review watch-and-fix watch-and-review
+references/policy/pr-lifecycle.md	implement pr-fix pr-review
+references/policy/trust.md	clean-memory create-clarity implement manual-qa orchestrate pr-fix pr-review ship tickets watch-and-fix watch-and-review
+references/policy/worktrees.md	clean-memory create-clarity implement orchestrate pr-fix pr-review watch-and-fix watch-and-review
+scripts/gh_identity.sh	create-clarity implement manual-qa orchestrate pr-fix pr-review watch-and-fix watch-and-review
+scripts/poll_pr.sh	orchestrate pr-fix pr-review watch-and-fix watch-and-review
+scripts/run_lock.sh	clean-memory create-clarity implement manual-qa orchestrate pr-fix pr-review watch-and-fix watch-and-review
+schemas/cases-v1.json	clean-memory create-clarity implement manual-qa orchestrate pr-fix pr-review watch-and-fix watch-and-review
+schemas/poll-snapshot-v1.json	orchestrate pr-fix pr-review watch-and-fix watch-and-review
+schemas/shared-state-v1.json	clean-memory create-clarity implement manual-qa orchestrate pr-fix pr-review watch-and-fix watch-and-review

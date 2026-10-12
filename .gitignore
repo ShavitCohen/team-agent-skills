@@ -1,0 +1,16 @@
+# Shared-component copies are generated from shared/ by sync.sh (install.sh
+# runs it); keep this list in step with shared/manifest.tsv.
+/skills/*/references/policy/browser.md
+/skills/*/references/policy/conventions.md
+/skills/*/references/policy/handoff.md
+/skills/*/references/policy/identity.md
+/skills/*/references/policy/polling.md
+/skills/*/references/policy/pr-lifecycle.md
+/skills/*/references/policy/trust.md
+/skills/*/references/policy/worktrees.md
+/skills/*/scripts/gh_identity.sh
+/skills/*/scripts/poll_pr.sh
+/skills/*/scripts/run_lock.sh
+/skills/*/schemas/cases-v1.json
+/skills/*/schemas/poll-snapshot-v1.json
+/skills/*/schemas/shared-state-v1.json

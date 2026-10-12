@@ -14,7 +14,8 @@ Usage: install.sh --target DIR [--only PKG[,PKG...]] [--dry-run] [--no-verify] [
   --no-verify    Skip running verify.sh after copying.
   --force        Replace a same-named directory this installer did not write.
 
-Each package is synced as TARGET/<package>/ — files removed upstream are removed
+Each package is synced as TARGET/<package>/, then sync.sh writes its shared
+components (kept once under shared/) into it. Files removed upstream are removed
 from the installed copy too. Nothing outside those eleven directories is touched;
 a skill's private configuration and state live elsewhere and are never affected.
 A TARGET/<package>/ without tests/validate.sh was not written by this installer
@@ -87,9 +88,13 @@ for p in "${PACKAGES[@]}"; do
 done
 
 if [[ $DRY_RUN -eq 1 ]]; then
+  echo "Would generate the shared-component copies with sync.sh."
   echo "Dry run — nothing was changed."
   exit 0
 fi
+
+# Shared components live once under shared/; generate each package's copies.
+"$REPO_DIR/sync.sh" --root "$TARGET"
 
 if [[ $NO_VERIFY -eq 0 && -x "$REPO_DIR/verify.sh" ]]; then
   echo

@@ -142,14 +142,20 @@ spec/                the full specification, split by concern
   overview.md        the family, the life cycle, portability requirements
   shared/            shared components: trust, identity, worktrees, polling, …
   skills/            one specification per skill
+shared/              shared components, kept once, and the manifest mapping them to packages
 skills/              the eleven built packages — what install.sh copies
+sync.sh              writes the shared components into the packages
 ```
 
-The specification is the source of truth; the packages under `skills/` are built from it. Shared
-files (`references/policy/*`, `gh_identity.sh`, `run_lock.sh`, `poll_pr.sh`, shared schemas) are
-deliberately **duplicated byte-identical** across packages so each package stays independently
-installable — `verify.sh` enforces that the copies have not drifted. Per the spec, packages
-themselves contain no README or changelog.
+The specification is the source of truth; the packages under `skills/` are built from it. Per the
+spec, packages themselves contain no README or changelog.
+
+## Shared components
+
+Each shared policy, script and schema is kept once under `shared/`; `shared/manifest.tsv` lists the packages that ship it.
+`sync.sh` copies them into those packages, and `install.sh` runs it, so every installed package is self-contained.
+The copies are not committed: a raw git copy of `skills/` lacks them, so install with `install.sh` (or run `sync.sh` first).
+To change one, edit its master under `shared/` and re-run `sync.sh`; `verify.sh` fails on any copy that differs, naming file and package.
 
 ## License
 

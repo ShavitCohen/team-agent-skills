@@ -28,25 +28,43 @@ scratch=$(mktemp -d "${TMPDIR:-/tmp}/verify.XXXXXX")
 trap 'rm -rf -- "$scratch"' EXIT
 
 # ---------------------------------------------------------------- manifests
-# Authoritative per-package file sets from the specification. Key: basename.
+# Per-package files owned by the package itself. Key: basename. Shared
+# components are added from the central manifest below.
 declare -A MANIFEST
 
-MANIFEST[clean-memory]='SKILL.md references/policy/browser.md references/policy/conventions.md references/policy/handoff.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/inventory-v1.json schemas/shared-state-v1.json scripts/inventory.sh scripts/reclaim.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh'
-MANIFEST[create-clarity]='SKILL.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh'
-MANIFEST[implement]='SKILL.md references/gh-commands.md references/worker-brief.md references/policy/browser.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/pr-lifecycle.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh'
-MANIFEST[manual-qa]='SKILL.md references/comment-format.md references/policy/identity.md references/policy/trust.md schemas/cases-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/k8s_preflight.py scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh'
-MANIFEST[orchestrate]='SKILL.md references/lanes.md references/stage-briefs.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/polling.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/orchestrate-profile-v1.json schemas/orchestrate-run-v1.json schemas/poll-snapshot-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/lane_profile.sh scripts/poll_pr.sh scripts/run_lock.sh scripts/stage_signal.sh tests/fixtures/cases.json tests/validate.sh'
-MANIFEST[pr-fix]='SKILL.md references/gh-commands.md references/policy/browser.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/polling.md references/policy/pr-lifecycle.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/poll-snapshot-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/poll_pr.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh'
+MANIFEST[clean-memory]='SKILL.md schemas/inventory-v1.json scripts/inventory.sh scripts/reclaim.sh tests/fixtures/cases.json tests/validate.sh'
+MANIFEST[create-clarity]='SKILL.md tests/fixtures/cases.json tests/validate.sh'
+MANIFEST[implement]='SKILL.md references/gh-commands.md references/worker-brief.md tests/fixtures/cases.json tests/validate.sh'
+MANIFEST[manual-qa]='SKILL.md references/comment-format.md scripts/k8s_preflight.py tests/fixtures/cases.json tests/validate.sh'
+MANIFEST[orchestrate]='SKILL.md references/lanes.md references/stage-briefs.md schemas/orchestrate-profile-v1.json schemas/orchestrate-run-v1.json scripts/lane_profile.sh scripts/stage_signal.sh tests/fixtures/cases.json tests/validate.sh'
+MANIFEST[pr-fix]='SKILL.md references/gh-commands.md tests/fixtures/cases.json tests/validate.sh'
 MANIFEST[pr-review]=${MANIFEST[pr-fix]}
-MANIFEST[ship]='SKILL.md references/pr-comment-template.md references/reviewer-brief.md references/policy/trust.md tests/validate.sh'
-MANIFEST[tickets]='SKILL.md references/output-format.md references/query-language.md references/policy/trust.md scripts/fetch_tickets.sh tests/fixtures/queries.json tests/validate.sh'
-MANIFEST[watch-and-fix]='SKILL.md references/policy/conventions.md references/policy/handoff.md references/policy/identity.md references/policy/polling.md references/policy/trust.md references/policy/worktrees.md schemas/cases-v1.json schemas/poll-snapshot-v1.json schemas/shared-state-v1.json scripts/gh_identity.sh scripts/poll_pr.sh scripts/run_lock.sh tests/fixtures/cases.json tests/validate.sh'
+MANIFEST[ship]='SKILL.md references/pr-comment-template.md references/reviewer-brief.md tests/validate.sh'
+MANIFEST[tickets]='SKILL.md references/output-format.md references/query-language.md scripts/fetch_tickets.sh tests/fixtures/queries.json tests/validate.sh'
+MANIFEST[watch-and-fix]='SKILL.md tests/fixtures/cases.json tests/validate.sh'
 MANIFEST[watch-and-review]=${MANIFEST[watch-and-fix]}
 
-# Shared components whose copies must be byte-identical across packages and
-# must carry a provenance header. Policy files are shared by basename.
-SHARED_SCRIPTS='gh_identity.sh run_lock.sh poll_pr.sh'
-SHARED_SCHEMAS='cases-v1.json shared-state-v1.json poll-snapshot-v1.json'
+# Shared components: one master each under shared/, copied into the packages
+# the central manifest lists (PATH<TAB>PKG PKG ...). Copies must match their
+# master byte-for-byte and carry a provenance header.
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SHARED_DIR="$REPO_DIR/shared"
+SHARED_MANIFEST="$SHARED_DIR/manifest.tsv"
+if [ ! -f "$SHARED_MANIFEST" ]; then
+  printf '%s: shared manifest not found: %s\n' "$prog" "$SHARED_MANIFEST" >&2
+  exit 2
+fi
+declare -A SHARED_PATHS SHARED_FOR
+while IFS=$'\t' read -r spath spkgs; do
+  case $spath in ''|'#'*) continue ;; esac
+  SHARED_PATHS[$spath]=1
+  for spkg in $spkgs; do
+    SHARED_FOR[$spkg]="${SHARED_FOR[$spkg]:-} $spath"
+  done
+done < "$SHARED_MANIFEST"
+for spkg in "${!MANIFEST[@]}"; do
+  MANIFEST[$spkg]="${MANIFEST[$spkg]}${SHARED_FOR[$spkg]:-}"
+done
 
 # ------------------------------------------------------------------ reporting
 declare -A PKG_FAILS PKG_INFOS
@@ -249,13 +267,7 @@ check_shared_integrity() {
 
     # Which canonical shared component (if any) is this file a copy of?
     compname=''
-    case $rel in
-      references/policy/*.md) compname="references/policy/$base" ;;
-      scripts/*)
-        case " $SHARED_SCRIPTS " in *" $base "*) compname="scripts/$base" ;; esac ;;
-      schemas/*)
-        case " $SHARED_SCHEMAS " in *" $base "*) compname="schemas/$base" ;; esac ;;
-    esac
+    [ -n "${SHARED_PATHS[$rel]:-}" ] && compname=$rel
 
     if [ -n "$hdr" ]; then
       lineno=${hdr%%$'\t'*}
@@ -272,6 +284,17 @@ check_shared_integrity() {
       COMP_RECORDS+=("$compname"$'\t'"$(sha_file "$f")"$'\t'"$pkg")
     fi
   done < <(find "$dir" -type f \( -name '*.sh' -o -name '*.md' -o -name '*.json' \) -print0 | sort -z)
+}
+
+# Every shared copy this package ships must equal its master under shared/.
+check_shared_drift() {
+  local pkg=$1 dir=$2 rel
+  for rel in ${SHARED_FOR[$pkg]:-}; do
+    [ -f "$dir/$rel" ] || continue   # reported by check_manifest
+    if ! cmp -s -- "$dir/$rel" "$SHARED_DIR/$rel"; then
+      fail "$pkg" shared-drift "$rel differs from its master shared/$rel (edit the master, then re-run sync.sh)"
+    fi
+  done
 }
 
 check_dangling_refs() {
@@ -449,6 +472,7 @@ for arg in "$@"; do
   check_frontmatter     "$pkg" "$dir"
   check_scripts         "$pkg" "$dir"
   check_shared_integrity "$pkg" "$dir"
+  check_shared_drift    "$pkg" "$dir"
   check_dangling_refs   "$pkg" "$dir"
   check_forbidden       "$pkg" "$dir"
   check_hardcoding      "$pkg" "$dir"
