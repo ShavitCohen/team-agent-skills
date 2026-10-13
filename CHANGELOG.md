@@ -5,6 +5,10 @@ All notable changes to the Team Agent Skills are recorded here. Releases are tag
 
 ## 1.1.0 — unreleased
 
+- Shared policies, scripts and schemas are defined once under `shared/`, with `shared/manifest.tsv`
+  mapping each to the packages that ship it. `sync.sh` generates the copies and `install.sh` runs it;
+  the copies are no longer committed, so a raw git copy of `skills/` needs the installer. `verify.sh`
+  reads the same manifest and fails on any copy that differs from its master, naming file and package.
 - CI: a `verify` GitHub Actions check runs `./verify.sh skills/*` on Ubuntu and macOS for every
   pull request to `main` and every push to `main`, with read-only permissions and no secrets.
   `verify.sh` and the package test suites now also run on stock macOS (bash 3.2, `shasum`, no GNU
