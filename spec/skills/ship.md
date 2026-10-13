@@ -1,5 +1,21 @@
 # Ship
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+Pass the policy to the persistent reviewer in every round. In minimal mode, run affected checks
+in rounds, then the full applicable gate once on the final committed SHA immediately before every
+push. The reviewer's execution restrictions apply even when the author's verification has finished.
+
+
 ## Package
 
 Create this portable package:
@@ -25,7 +41,8 @@ description: "Ship one task end to end, ticket or not: fresh worktree from lates
 ---
 ```
 
-It ships `references/policy/trust.md` and no other shared policy, and no scripts or schemas. Ship is
+It ships `references/policy/trust.md`, `references/policy/testing.md`, the shared test runner and
+semaphore helper, testing-policy schema and behavioral fixtures. Ship is
 the one skill that builds and opens pull requests outside the ticket chain: it takes no run lock, routes nothing through
 `gh_identity.sh`, and does not apply the PR lifecycle. Each omission is deliberate and explained
 under [Deliberate differences from the ticket chain](#deliberate-differences-from-the-ticket-chain).
@@ -105,7 +122,7 @@ before push. Follow-ups keep the same local CI gate as the first push.
 
 ## The review loop
 
-**Verification** is the repository's full suite on the committed head, plus a check of the running
+**Verification**, by default, is the repository's full suite on the committed head, plus a check of the running
 application for user-visible changes when the environment can make one — counted only when it shows
 something that exists only on this branch. Nothing edits the worktree while it runs. What could not
 be checked goes into the pull request as not verified, never as done.
@@ -123,6 +140,12 @@ record the exact check, reason, attempted alternative, and residual gap as not r
 within existing authorizations. Missing credentials, unavailable services or platforms, and remote-only
 checks can explain a gap; convenience or suite duration cannot. Include the checked SHA, commands,
 results, and gaps in the review log and PR. Remote CI remains required where the repository requires it.
+
+With `minimal_test_runs` true, round verification is affected checks only. After review and base
+synchronization finish, run the full applicable gate once on the final committed SHA before push.
+All four reviewer templates carry the resolved policy, explicit environment settings, phase, and
+Developer/CI evidence. Disabled Reviewers execute zero test/build/lint commands, including targeted
+reproducers, and route missing or suspicious coverage to the Developer.
 
 **The reviewer** is one agent for the whole loop:
 

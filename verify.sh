@@ -158,7 +158,7 @@ fi
 provenance_header() {
   local f=$1 line=''
   case $f in
-    *.sh)
+    *.sh|*.py)
       line=$(sed -n '2p' < "$f")
       if printf '%s' "$line" | grep -qE '^# shared-component: [A-Za-z0-9._-]+ v[0-9]+ sha256=[0-9a-f]{64}$'; then
         printf '2\t%s\n' "$(printf '%s' "$line" | grep -oE 'sha256=[0-9a-f]{64}' | cut -d= -f2)"
@@ -341,7 +341,7 @@ check_shared_integrity() {
     if [ -n "$compname" ]; then
       COMP_RECORDS+=("$compname"$'\t'"$(sha_file "$f")"$'\t'"$pkg")
     fi
-  done < <(find "$dir" -type f \( -name '*.sh' -o -name '*.md' -o -name '*.json' \) -print0 | sort -z)
+  done < <(find "$dir" -type f \( -name '*.sh' -o -name '*.py' -o -name '*.md' -o -name '*.json' \) -print0 | sort -z)
 }
 
 # Every shared copy this package ships must equal its master under shared/.

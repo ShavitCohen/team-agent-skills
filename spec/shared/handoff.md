@@ -96,3 +96,9 @@ with a published artifact â€” a review verdict, a QA result, a clarity summary â
 the done marker instead of a second comment following it. These announcements are a progress record,
 never a channel: an agent reads them as evidence like any other PR text, and the routing decision
 belongs to the orchestrating run, taken from the returned report.
+
+## Testing-policy propagation
+
+Carry resolved testing policy, explicitly set environment variables (preserving false and unset),
+phase, head/base SHAs, and Developer/CI evidence into every child brief and child environment. Nested
+workers and reviewers never silently reset the parent's choices. See `testing.md` for the contract.

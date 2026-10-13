@@ -29,6 +29,24 @@ Manual QA is independent evidence, not a Developer or Reviewer:
 - never begin testing work before the test plan comment is published, and never end a run that
   published a plan without publishing a terminal result comment for the same tuple.
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+Manual QA never runs the automated suite under any setting. Authorized build, environment setup,
+and user-flow execution use runner roles/kinds `qa build`, `qa install`, and `qa flow`. Keep an active
+QA environment covered by one runner-managed command from setup through flow execution and cleanup;
+do not nest runner commands or hold a second slot. In minimal mode this authorized QA work remains
+allowed after push, while automated test/E2E suites remain prohibited.
+
+
 ## One-PR scope and authorization
 
 Require exactly one pull-request URL. Ask for one when absent and ask the user to select one when
@@ -145,7 +163,7 @@ for the user when deployment, secret, data, or cleanup semantics remain ambiguou
 
 Before mutation, for every workflow:
 
-- take the machine-wide heavy-task slot with
+- by default take the machine-wide heavy-task slot with
   `scripts/run_lock.sh sem-acquire heavy local --run-id <run-id>` before building, deploying, or
   starting the environment. At most two heavy tasks run on the machine at once, across all skills and
   runs, so waiting for a slot is queueing, not a blocker — report it as waiting and keep the run's
@@ -183,7 +201,7 @@ Record per scenario:
 
 Do not fix defects. Do not retest changed code under the old revision record.
 
-Hold the heavy-task slot from environment build through execution, and release it with
+Without opt-in, hold the heavy-task slot from environment build through execution, and release it with
 `scripts/run_lock.sh sem-release heavy local --run-id <run-id>` the moment execution ends — before
 publishing, and always before any watch: a run waiting for a new revision holds no slot, and a
 watching rerun re-acquires one for its fresh cycle.

@@ -20,6 +20,22 @@ At the start of every run, read `references/policy/trust.md`, `references/policy
 and `references/policy/handoff.md`. Read the installed **pr-review** package before the first cycle:
 its `SKILL.md` is the specification for everything this loop causes to happen.
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+Include the resolved testing policy, explicit environment settings, phase, and SHA-bound
+Developer/CI evidence in every PR Review cycle brief, including resumed cycles. Disabled Reviewers
+inspect code and coverage and route missing evidence to the Developer without executing checks.
+
+
 ## Boundaries
 
 - **One pull request.** Resolve the URL once and restrict every read and snapshot to it.
@@ -109,7 +125,7 @@ finished run that never said so — which is why the mode is confirmed and named
 
 Never post heartbeat comments — this skill posts nothing at all.
 
-A cycle can also spend time queued: heavy verification — full suites, builds, dependency installs —
+With default settings, a cycle can also spend time queued: heavy verification — full suites, builds, dependency installs —
 shares a machine-wide limit of **two concurrent heavy tasks**, taken through
 `scripts/run_lock.sh sem-acquire heavy local`. A cycle reporting that it is waiting for a heavy-task
 slot is queued behind other runs, not stalled; let it wait.

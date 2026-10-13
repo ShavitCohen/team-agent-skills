@@ -62,6 +62,22 @@ and `references/policy/handoff.md`. Read `references/lanes.md` before resolving 
 request, so it carries neither the browser policy nor the pull-request lifecycle policy; the stage
 skills that do carry them apply them.
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+Every stage receives the testing-policy block from `references/stage-briefs.md`, including the
+Implement worker and nested reviewer. Queueing is capacity contention, not a stalled stage or a
+finding. Do not start another stage to bypass a slot wait or a Reviewer execution prohibition.
+
+
 ## Boundaries
 
 - Activate only on an explicit request to orchestrate, with exactly one issue URL. Ask for one when none
@@ -740,7 +756,7 @@ can see without asking it anything:
 A window is not a deadline on the work and does not conflict with this run having no time budget: the
 run takes as long as the ticket needs. The window only asks whether the work is still happening.
 
-Heavy work also queues. Every stage shares a machine-wide limit of **two concurrent heavy tasks** —
+With default settings, heavy work also queues. Opt-in commands use the runner and configured capacity. Every stage shares a machine-wide limit of **two concurrent heavy tasks** —
 full suites, builds, dependency installs, QA environments — taken through the run-lock semaphore
 (`run_lock.sh sem-acquire heavy local`), so cycles running in parallel with other work routinely wait
 for a slot. A cycle whose trace shows it waiting for a heavy-task slot is queued, not hung: that

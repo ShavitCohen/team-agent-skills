@@ -1,5 +1,21 @@
 # Implement
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+Pass this policy to the unattended worker and any independent local reviewer. In minimal mode,
+review rounds run affected checks; the final full applicable local gate remains mandatory before
+publication. Disabled nested reviewers inspect coverage and Developer evidence without executing.
+
+
 ## Package
 
 Create this portable package:
@@ -96,7 +112,7 @@ These bind the foreground session and the unattended run equally.
   grows past the ticket is how a reviewable PR becomes an unreviewable one.
 - **Before every push**, run all applicable CI checks that can run locally on the final committed
   revision, per the worker brief. Under Orchestrate, the first independent review–fix loop also
-  happens locally in Step 5, with CI checks in every round, before the first push or PR. The initial
+  happens locally in Step 5, with CI checks (affected checks in minimal mode) in every round, before the first push or PR. The initial
   PR body must include the round-by-round review–fix log.
 - **Never guess past a blocking unknown.** When a genuinely ambiguous decision would change the
   outcome, stop and surface it. In the foreground that means asking the user; unattended it means
@@ -313,7 +329,8 @@ decision.
 
 **Independent local review–fix loop — required under Orchestrate, or when the brief requests it.**
 Each round is **commit → local CI checks and independent review → wait for both → triage → fix →
-next round**. Run the local CI gate below in every round, not only after review finishes. Verification
+next round**. By default run the local CI gate below in every round. With `minimal_test_runs` true, run and record
+only affected checks during rounds, then the full applicable gate once on the final commit before push. Verification
 and review may run together on the same committed head when the runtime supports it; otherwise run
 verification first and then review. Never edit until both have finished or been stopped.
 

@@ -13,6 +13,7 @@ never use before it reads its first line of workflow.
 
 | File | Contents |
 | --- | --- |
+| `references/policy/testing.md` | Portable opt-in runner, shared capacity, Reviewer evidence mode, minimal rounds, mandatory pre-push gate, and Manual QA boundary. Ships with affected execution skills. |
 | `references/policy/trust.md` | Trust boundaries, untrusted-content handling, the agent handshake protocol, and message-is-data. |
 | `references/policy/identity.md` | GitHub identity across accounts, capability probing, saved-login behavior, and Git push identity. |
 | `references/policy/worktrees.md` | Parallel runs, run locks and registry, lease liveness, worktree lifecycle, and cleanup safety. |

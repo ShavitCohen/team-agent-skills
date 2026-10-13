@@ -14,3 +14,8 @@ scripts/run_lock.sh	clean-memory create-clarity implement manual-qa orchestrate 
 schemas/cases-v1.json	clean-memory create-clarity implement manual-qa orchestrate pr-fix pr-review watch-and-fix watch-and-review
 schemas/poll-snapshot-v1.json	orchestrate pr-fix pr-review watch-and-fix watch-and-review
 schemas/shared-state-v1.json	clean-memory create-clarity implement manual-qa orchestrate pr-fix pr-review watch-and-fix watch-and-review
+scripts/semaphore.py	clean-memory create-clarity implement manual-qa orchestrate pr-fix pr-review watch-and-fix watch-and-review ship
+scripts/test_runner.py	implement manual-qa orchestrate pr-fix pr-review ship watch-and-fix watch-and-review
+references/policy/testing.md	implement manual-qa orchestrate pr-fix pr-review ship watch-and-fix watch-and-review
+schemas/testing-policy-v1.json	implement manual-qa orchestrate pr-fix pr-review ship watch-and-fix watch-and-review
+tests/testing-policy.py	implement manual-qa orchestrate pr-fix pr-review ship watch-and-fix watch-and-review

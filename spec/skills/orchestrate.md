@@ -1,5 +1,21 @@
 # Orchestrate
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+Every stage receives the testing-policy block from `references/stage-briefs.md`, including the
+Implement worker and nested reviewer. Queueing is capacity contention, not a stalled stage or a
+finding. Do not start another stage to bypass a slot wait or a Reviewer execution prohibition.
+
+
 ## Package
 
 Create this portable package:

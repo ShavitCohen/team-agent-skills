@@ -1,4 +1,4 @@
-<!-- shared-component: worktrees.md v2 sha256=469598ed539aa8b209dd894cc67539e45d1bf442fb39cd2bd77249e3c2245ce9 -->
+<!-- shared-component: worktrees.md v3 sha256=c5bb6c0ee6f9b0e41d96d05df3b22059067b6689b1a42d8fc0d0ad244532374f -->
 # Parallel runs, locks, and worktree lifecycle
 
 Assume several skills, and several runs of the same skill, are active on the same machine and often the
@@ -164,3 +164,12 @@ fixed port, and delete only the namespace and resources that run created.
 
 When the repository's local workflow supports only one shared instance, that instance is a
 mutual-exclusion resource: take a resource lock on it, or ask the user, and never assume it is idle.
+
+## Shared verification capacity
+
+Heavy tasks share the `heavy/local` semaphore, default capacity 2. `sem-acquire`, `sem-touch`, and
+`sem-release` use the package's `scripts/semaphore.py` helper to serialize slot mutations; they need
+Python 3 on Linux or macOS. `touch` and `with` refresh slots held by the role run. Configured testing
+runners use unique command tokens, renew their own slots, and release them after command completion
+or interruption. Do not nest a runner under a second slot. A live process/group protects an expired
+command lease. Unknown records are preserved; queueing is contention, never a product defect.

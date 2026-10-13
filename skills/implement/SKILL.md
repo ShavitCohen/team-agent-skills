@@ -18,6 +18,22 @@ At the start of every run, read `references/policy/trust.md`, `references/policy
 `references/policy/pr-lifecycle.md`, and `references/policy/handoff.md`. Read
 `references/policy/browser.md` only once the ticket is known to be browser-visible.
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+Pass this policy to the unattended worker and any independent local reviewer. In minimal mode,
+review rounds run affected checks; the final full applicable local gate remains mandatory before
+publication. Disabled nested reviewers inspect coverage and Developer evidence without executing.
+
+
 ## One-ticket scope
 
 - Require one issue URL, of the shape `https://github.com/OWNER/REPOSITORY/issues/NUMBER`.
@@ -64,7 +80,7 @@ These bind the foreground session and the unattended run equally.
   that grows past the ticket is how a reviewable pull request becomes an unreviewable one.
 - **Before every push**, run all applicable CI checks that can run locally on the final committed
   revision, per `references/worker-brief.md`. Under Orchestrate, the first independent review–fix
-  loop also happens locally in that brief's Step 5, with CI checks in every round, before the first
+  loop also happens locally in that brief's Step 5, with CI checks (affected checks in minimal mode) in every round, before the first
   push or pull request. The initial PR body must include the round-by-round review–fix log.
 - **Never guess past a blocking unknown.** When a genuinely ambiguous decision would change the
   outcome, stop and surface it. In the foreground that means asking the user; unattended it means

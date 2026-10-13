@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Offline checks for the ship package. The package has no scripts: what can
-# drift is its text, so these checks pin the rules that keep a ship run safe
-# and portable. No network, no token, and no repository are needed.
+# Offline checks for the ship workflow and its shared testing policy. These
+# checks pin the rules that keep a ship run safe and portable. No network, no token, and no repository are needed.
 set -uo pipefail
 
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
@@ -168,4 +167,6 @@ else
 fi
 
 printf 'validate.sh: %s passed, %s failed\n' "$passes" "$failures"
-[ "$failures" -eq 0 ]
+[ "$failures" -eq 0 ] || exit 1
+
+python3 "$pkg/tests/testing-policy.py" --contracts-only || exit 1

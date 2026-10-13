@@ -36,6 +36,26 @@ Verify the pull request against:
 - optional browser-visible behavior;
 - a matching Manual QA result when change risk requires it.
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+When `reviewer_runs_tests` is false, execute zero test/build/lint commands, including targeted
+reproducers and cross-skill reviewers. Inspect the diff and coverage; publish **verified from
+Developer evidence @<sha> + CI** with exact tested SHAs and missing/stale evidence as Developer
+findings. Every later instruction to reproduce, rerun, or verify a fix is conditional on this policy;
+use static inspection and SHA-bound evidence when execution is disabled. Browser setup that needs a
+build is also prohibited in this mode: report it unperformed and use independent Manual QA evidence
+or an authorized waiver. Never reinterpret the setting as permission to skip code review.
+
+
 ## One-PR scope
 
 - Require one pull-request URL or `OWNER/REPOSITORY#NUMBER`.
@@ -141,16 +161,15 @@ error handling and compatibility; authentication and authorization; privacy, sec
 and unsafe input; dependency and supply-chain risks; changed trust boundaries; maintainability and
 operational risk; success and failure test coverage.
 
-Run the narrowest meaningful repository-supported formatting, linting, type checks, tests, builds,
+When the testing policy permits local Reviewer execution, run the narrowest meaningful
+repository-supported formatting, linting, type checks, tests, builds,
 migration checks, and security checks, under `scripts/run_lock.sh with` when they are long. Expand
 verification according to risk. Distinguish product defects from unavailable tools, credentials, or
 environment dependencies.
 
-A full suite, build, or dependency install heavy enough to load the whole machine additionally takes
-the machine-wide heavy-task slot first — `scripts/run_lock.sh sem-acquire heavy local
---run-id <run-id>`, at most two heavy tasks machine-wide across all skills and runs — released with
-`sem-release` the moment the commands finish. Queueing for the slot is contention, not a defect, and
-never a finding against the pull request.
+Use the shared runner for eligible execution, with `--heavy` for a full suite, build, or dependency
+install. Its machine-wide slot is released when commands finish; no second outer slot is taken.
+Queueing is contention, never a product finding. Disabled Reviewers execute none of these commands.
 
 Do not edit or push fixes.
 
@@ -316,7 +335,8 @@ On every reviewed tuple, inspect each unresolved review thread. Resolve it when 
 - the current code fully corrects the reported behavior, or the referenced code was removed or replaced
   so the concern is objectively no longer applicable;
 - this skill independently verifies the result through the current diff, surrounding code, and the
-  narrowest meaningful test or reproduction;
+  narrowest meaningful test or reproduction when execution is allowed, otherwise static inspection
+  plus Developer and CI evidence for the current SHA;
 - no part of the concern remains, no material question or decision is unanswered, and the thread is not
   merely disputed, deferred, or outside scope;
 - the author has not explicitly asked that the thread remain open for human confirmation;

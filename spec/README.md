@@ -16,6 +16,7 @@ a reader — human or agent — loads only what a task needs.
      probing, credential-scoped pushes.
    - [worktrees.md](shared/worktrees.md) — parallel runs, one-run-one-worktree, run locks, the
      lease-based registry, cleanup safety.
+   - [testing.md](shared/testing.md) — portable verification policy, runner, capacity, and evidence.
    - [conventions.md](shared/conventions.md) — the project conventions file.
    - [polling.md](shared/polling.md) — change-filtered PR snapshots and the `poll_pr.sh` contract.
    - [browser.md](shared/browser.md) — browser validation in an isolated local workflow; the
