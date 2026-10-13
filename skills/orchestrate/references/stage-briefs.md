@@ -9,6 +9,20 @@ Resolve every `{placeholder}` at launch. Drop a line whose value is genuinely ab
 an empty placeholder through — a stage must never read `{human_reviewer}` as a reviewer's name. These
 templates contain no login, home directory, repository, model, or vendor.
 
+## Testing policy carried by every stage
+
+Resolve `scripts/test_runner.py config` and include its JSON, explicit environment variables (including
+false and unset distinctions), phase, head/base SHAs, and Developer/CI evidence in every brief and
+child environment. This applies to Implement workers and nested local reviewers as well as PR stages.
+Do not let a child infer defaults when the parent opted in. Read `references/policy/testing.md`.
+
+With `reviewer_runs_tests` false, the Reviewer executes zero test/build/lint commands and cites
+Developer evidence plus CI by exact SHA; missing or suspicious coverage is a Developer finding.
+With `minimal_test_runs` true, Developer rounds run affected checks, and the full applicable local
+gate on the final committed revision stays mandatory before every push. After push, no duplicate
+local automated verification of the unchanged SHA. QA never runs the automated suite; authorized
+build, environment, and user flows still use the shared runner and capacity.
+
 ## The blocks every brief carries
 
 **Header.**
@@ -18,6 +32,9 @@ You are running the {stage} skill under an orchestrated run.
 Read {skill_md_path} and follow it exactly. It is your specification; this brief is your user.
 Target: {target_url}
 Repository: {owner}/{repository}
+Testing policy: {testing_policy_json}
+Explicit environment settings: {testing_policy_environment}
+Verification phase and evidence: {verification_phase_and_sha_evidence}
 Before you do any work, read the target from GitHub: its current state, head, checks, comments,
 reviews, and threads. Do this on every cycle, including one you resume with context you remember —
 what you remember is not the current state, and the target has moved since your last cycle.

@@ -184,3 +184,10 @@ run_lock.sh safe    WORKTREE_PATH
 run_lock.sh remove  SKILL KEY --run-id RUN_ID
 run_lock.sh reap    [SKILL]
 ```
+
+## Shared verification capacity
+
+Heavy work shares the machine-wide `heavy/local` semaphore (default 2). Atomic serialized acquire,
+refresh, and release preserve capacity across packages; excess work queues. The common runner in
+`testing.md` adds opt-in routing of every eligible command, configured N, command-slot renewal, and
+release on success, failure, or interruption. Never hold an outer slot around the runner.

@@ -26,6 +26,22 @@ At the start of every run, read `references/policy/trust.md`, `references/policy
 `references/policy/pr-lifecycle.md`, and `references/policy/handoff.md`. Read
 `references/policy/browser.md` only when a fix changes browser-visible behavior.
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+With `minimal_test_runs` true, inspect failing CI logs and code without duplicating verification
+on the unchanged pushed SHA. A warranted fix/new commit starts a new affected-check round and full
+pre-push gate. Record affected commands per round and final gate commands, SHA, results, and gaps.
+
+
 ## One-PR scope
 
 - Require one pull-request URL or `OWNER/REPOSITORY#NUMBER`.
@@ -136,7 +152,9 @@ identifiers in state; then handle what is new.
 3. **Conflicts.** Stop on a semantic or non-trivial conflict and report the conflicting paths and the
    decision needed. Resolve only mechanical conflicts whose intended result is unambiguous from the
    ticket, tests, and both sides of the change. Never guess at product or data semantics.
-4. **Failing checks.** Read the failing logs, reproduce locally where possible, fix the cause, pass
+4. **Failing checks.** Read the failing logs; reproduce locally where possible and permitted by the
+   testing policy. In minimal mode inspect the unchanged pushed SHA without duplicate execution,
+   then make the warranted fix/new commit before fresh verification. Fix the cause, pass
    the local CI gate, and push. Green checks are part of all
    green. Distinguish a product defect from an unavailable tool, credential, or environment dependency,
    and report the latter to the user instead of forcing a code change.
@@ -243,7 +261,7 @@ owns. It must therefore survive concurrency for hours:
 - Between cycles the worktree stays, and it must stay clean: commit and push every change in the cycle
   that made it, so a crash never strands work and the next cycle starts from the remote.
 - Run any command likely to outlast half the lease time-to-live under `scripts/run_lock.sh with`.
-- Full suites, builds, and dependency installs are **heavy tasks**: take the machine-wide heavy-task
+- Without testing-policy opt-in, full suites, builds, and dependency installs are **heavy tasks**: take the machine-wide heavy-task
   slot first with `scripts/run_lock.sh sem-acquire heavy local --run-id <run-id>` — at most two heavy
   tasks run on the machine at once, so expect to queue — and release it with `sem-release` the moment
   they finish. Never hold a slot while waiting on GitHub, a human, or another agent.

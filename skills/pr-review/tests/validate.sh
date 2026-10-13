@@ -321,4 +321,6 @@ done
 
 printf '\n%s: %s passed, %s failed\n' "$prog" "$pass" "$fail"
 [ "$fail" = 0 ] || exit 1
+
+python3 "$pkg/tests/testing-policy.py" || exit 1
 exit 0

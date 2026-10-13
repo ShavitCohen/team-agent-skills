@@ -1,5 +1,23 @@
 # Manual QA
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+Manual QA never runs the automated suite under any setting. Authorized build, environment setup,
+and user-flow execution use runner roles/kinds `qa build`, `qa install`, and `qa flow`. Keep an active
+QA environment covered by one runner-managed command from setup through flow execution and cleanup;
+do not nest runner commands or hold a second slot. In minimal mode this authorized QA work remains
+allowed after push, while automated test/E2E suites remain prohibited.
+
+
 ## Package
 
 Create this portable package:

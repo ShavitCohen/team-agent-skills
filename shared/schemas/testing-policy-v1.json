@@ -1,0 +1,40 @@
+{
+  "$comment": "shared-component: testing-policy-v1.json v1 sha256=5e0dc95c58663ee1c596a567875b8a4e7ee286ed4fac27d957b3cfacd83bcfff",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Resolved environment testing policy v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "opt_in",
+    "wrapper",
+    "slots",
+    "reviewer_runs_tests",
+    "minimal_test_runs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "opt_in": {
+      "type": "boolean"
+    },
+    "wrapper": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "slots": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 256
+    },
+    "reviewer_runs_tests": {
+      "type": "boolean"
+    },
+    "minimal_test_runs": {
+      "type": "boolean"
+    }
+  }
+}

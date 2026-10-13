@@ -1,5 +1,21 @@
 # PR Fix
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+With `minimal_test_runs` true, inspect failing CI logs and code without duplicating verification
+on the unchanged pushed SHA. A warranted fix/new commit starts a new affected-check round and full
+pre-push gate. Record affected commands per round and final gate commands, SHA, results, and gaps.
+
+
 ## Package
 
 Create this portable package:

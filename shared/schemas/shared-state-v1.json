@@ -1,5 +1,5 @@
 {
-  "$comment": "shared-component: shared-state-v1.json v5 sha256=99506b033046c7bcc647e9465095a99bd0871f5451df66f72bd79204e3decfde",
+  "$comment": "shared-component: shared-state-v1.json v6 sha256=2ee62b455efd5e975ea4e5cdfefcc71b12a5c3f5c7c51cb9e06a4034ab9f98a2",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Team agent skills shared state, version 1",
   "description": "Identity, run-registry, lease, and watcher-state records. A document whose schema_version is greater than 1 is rejected rather than interpreted, and is preserved untouched.",
@@ -268,6 +268,14 @@
         "ttl": {
           "type": "integer",
           "minimum": 60
+        },
+        "capacity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "process_group": {
+          "type": "boolean"
         }
       }
     },

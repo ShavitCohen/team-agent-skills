@@ -1,5 +1,25 @@
 # PR Review
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+When `reviewer_runs_tests` is false, execute zero test/build/lint commands, including targeted
+reproducers and cross-skill reviewers. Inspect the diff and coverage; publish **verified from
+Developer evidence @<sha> + CI** with exact tested SHAs and missing/stale evidence as Developer
+findings. Every later instruction to reproduce, rerun, or verify a fix is conditional on this policy;
+use static inspection and SHA-bound evidence when execution is disabled. Browser setup that needs a
+build is also prohibited in this mode: report it unperformed and use independent Manual QA evidence
+or an authorized waiver. Never reinterpret the setting as permission to skip code review.
+
+
 ## Package
 
 Create this portable package:
@@ -194,7 +214,8 @@ Evaluate:
 - maintainability and operational risk;
 - success and failure test coverage.
 
-Run the narrowest meaningful repository-supported formatting, linting, type checks,
+When the testing policy permits local Reviewer execution, run the narrowest meaningful
+repository-supported formatting, linting, type checks,
 tests, builds, migration checks, and security checks. Expand verification according
 to risk. Distinguish product defects from unavailable tools, credentials, or environment
 dependencies.

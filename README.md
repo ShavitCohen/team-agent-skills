@@ -168,3 +168,30 @@ To change one, edit its master under `shared/` and re-run `sync.sh`; `verify.sh`
 ## License
 
 [MIT](LICENSE)
+
+## Running on a constrained machine
+
+Defaults stay unchanged: heavy work shares two slots and Reviewers retain their existing checks.
+Set these variables consistently in the environment launching every skill to opt in:
+
+```sh
+export TEAM_SKILLS_TEST_SLOTS=2
+export TEAM_SKILLS_REVIEWER_RUNS_TESTS=false
+export TEAM_SKILLS_MINIMAL_TEST_RUNS=true
+# Optional executable on PATH (or your own executable path):
+export TEAM_SKILLS_TEST_WRAPPER=my-test-wrapper
+```
+
+The wrapper receives argv and must run `"$@"` once, wait, and return its status; it is not a shell
+command string. Omit it to use the built-in semaphore alone. Any explicit setting routes every
+eligible test/build/lint/E2E command through the shared runner and machine-wide limit. Python 3 and
+POSIX advisory locks support Linux and macOS; packages share the same private state root. Invalid
+settings and wrapper startup failures are environment gaps; waiting for capacity is not a defect.
+
+Disabling Reviewer execution reduces independent verification: Reviewers still inspect code and
+coverage and cite Developer results plus CI by SHA. Minimal mode runs affected checks during rounds
+and the complete applicable local gate once on the final committed SHA before every push; no setting
+waives that gate. After push, the unchanged SHA is not retested locally, and readiness depends on CI.
+A later fix starts a new mandatory pre-push cycle. Manual QA never runs automated suites; authorized
+builds, environment setup, and user flows still use the runner. See [the shared testing policy](shared/references/policy/testing.md)
+for commands, wrapper failure classification, evidence, and propagation to nested reviewers.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shared-component: run_lock.sh v2 sha256=26720dfcbfb1bfaca88b7aee4642763ce2707c5b017f3fed8548098098e39890
+# shared-component: run_lock.sh v3 sha256=2a5400b0f3d8d463c9e161c82a0c312f5a227a375aa9029397b6ea46bb1721a1
 # Run locks, lease liveness, run registry, worktree paths, and safe removal.
 # Shared by every skill in this family so that locking, registration, and cleanup
 # behave identically and Clean Memory can read the same records.
@@ -30,6 +30,7 @@ run_lock.sh resource-acquire KIND KEY --run-id RUN_ID
 run_lock.sh resource-release KIND KEY --run-id RUN_ID
 run_lock.sh sem-acquire KIND KEY --run-id RUN_ID [--capacity N] [--ttl SECONDS] [--wait SECONDS]
 run_lock.sh sem-release KIND KEY --run-id RUN_ID
+run_lock.sh sem-touch KIND KEY --run-id RUN_ID
 run_lock.sh safe    WORKTREE_PATH
 run_lock.sh remove  SKILL KEY --run-id RUN_ID
 run_lock.sh reap    [SKILL]
@@ -337,7 +338,10 @@ cmd_touch() {
     for sem_lease in "$root"/locks/sem-*/*/slot-*.lock/lease.json; do
       [ -f "$sem_lease" ] || continue
       if [ "$(jq -r '.run_id // ""' "$sem_lease" 2>/dev/null)" = "$held_run" ]; then
-        bump_heartbeat "$sem_lease"
+        local sem_base sem_kind sem_key
+        sem_base=$(dirname -- "$(dirname -- "$sem_lease")")
+        sem_key=${sem_base##*/}; sem_kind=$(basename -- "$(dirname -- "$sem_base")")
+        cmd_sem_touch "${sem_kind#sem-}" "$sem_key" --run-id "$held_run" >/dev/null
       fi
     done
   fi
@@ -404,9 +408,10 @@ cmd_release() {
       for sem_dir in "$root"/locks/sem-*/*/slot-*.lock; do
         [ -d "$sem_dir" ] || continue
         if [ "$(jq -r '.run_id // ""' "$sem_dir/lease.json" 2>/dev/null || printf '')" = "$held_run" ]; then
-          case $sem_dir in
-            "$root"/locks/*) rm -rf -- "$sem_dir" ;;
-          esac
+          local sem_base sem_kind sem_key
+          sem_base=$(dirname -- "$sem_dir")
+          sem_key=${sem_base##*/}; sem_kind=$(basename -- "$(dirname -- "$sem_base")")
+          cmd_sem_release "${sem_kind#sem-}" "$sem_key" --run-id "$held_run" >/dev/null
         fi
       done
     fi
@@ -528,101 +533,21 @@ cmd_resource_release() {
 }
 
 cmd_sem_acquire() {
-  # A bounded counting semaphore: capacity N holders share KIND/KEY, each on its
-  # own slot lease. Further acquirers queue until a slot frees or the wait limit
-  # passes. The machine-wide heavy-task queue is kind "heavy", key "local",
-  # capacity 2 — the queue that keeps parallel test suites, builds, and QA
-  # environments from saturating the machine.
-  local kind key run_id='' capacity=2 ttl=$DEFAULT_TTL wait_limit=${TEAM_SKILLS_SEM_WAIT:-3600}
-  kind=$(canon "${1:-}" semaphore-kind); key=$(canon "${2:-}" semaphore-key); shift 2
-  while [ $# -gt 0 ]; do
-    case $1 in
-      --run-id) run_id=${2:?--run-id needs a value}; shift 2 ;;
-      --capacity) capacity=${2:?--capacity needs a value}; shift 2 ;;
-      --ttl) ttl=${2:?--ttl needs a value}; shift 2 ;;
-      --wait) wait_limit=${2:?--wait needs a value}; shift 2 ;;
-      *) die "unexpected argument: $1" ;;
-    esac
-  done
-  [ -n "$run_id" ] || die "sem-acquire requires --run-id"
-  run_id=$(canon "$run_id" run-id)
-  capacity=$(canon_number "$capacity")
-  [ "$capacity" -ge 1 ] || die "capacity must be at least 1"
-  ttl=$(canon_number "$ttl")
-  if [ "$ttl" -lt "$MIN_TTL" ]; then die "ttl must be at least $MIN_TTL seconds"; fi
-  wait_limit=$(canon_number "$wait_limit")
-
-  local root base dir slot waited=0
+  local root
   root=$(state_root)
-  base="$root/locks/sem-$kind/$key"
-  if [ ! -d "$base" ]; then (umask 077 && mkdir -p "$base"); fi
-
-  while :; do
-    slot=1
-    while [ "$slot" -le "$capacity" ]; do
-      dir="$base/slot-$slot.lock"
-      if [ -f "$dir/lease.json" ] \
-        && [ "$(jq -r '.run_id // ""' "$dir/lease.json" 2>/dev/null)" = "$run_id" ]; then
-        write_lease "$dir" "sem-$kind" "$key" "$run_id" "$ttl" '' "$(now)"
-        jq -nc --arg kind "$kind" --arg key "$key" --arg run_id "$run_id" \
-          --argjson slot "$slot" --argjson capacity "$capacity" --arg lock "$dir" \
-          '{result:"acquired", semaphore:$kind, key:$key, slot:$slot, capacity:$capacity,
-            run_id:$run_id, lock:$lock}'
-        return 0
-      fi
-      if (umask 077 && mkdir "$dir" 2>/dev/null); then
-        write_lease "$dir" "sem-$kind" "$key" "$run_id" "$ttl" '' "$(now)"
-        jq -nc --arg kind "$kind" --arg key "$key" --arg run_id "$run_id" \
-          --argjson slot "$slot" --argjson capacity "$capacity" --arg lock "$dir" \
-          '{result:"acquired", semaphore:$kind, key:$key, slot:$slot, capacity:$capacity,
-            run_id:$run_id, lock:$lock}'
-        return 0
-      fi
-      if [ -d "$dir" ] && [ "$(classify_lock "$dir")" != live ]; then
-        case $dir in
-          "$root"/locks/*) rm -rf -- "$dir" ;;
-          *) die "refusing to remove a lock outside the state layout: $dir" ;;
-        esac
-        continue
-      fi
-      slot=$(( slot + 1 ))
-    done
-    if [ "$waited" -ge "$wait_limit" ]; then
-      jq -nc --arg kind "$kind" --arg key "$key" --arg run_id "$run_id" \
-        --argjson capacity "$capacity" --argjson waited "$waited" \
-        '{result:"exhausted", semaphore:$kind, key:$key, run_id:$run_id,
-          capacity:$capacity, waited:$waited}'
-      exit 3
-    fi
-    sleep 5
-    waited=$(( waited + 5 ))
-  done
+  python3 "$(dirname -- "$0")/semaphore.py" acquire "$root" "$@"
 }
 
 cmd_sem_release() {
-  local kind key run_id='' root base dir holder released=0
-  kind=$(canon "${1:-}" semaphore-kind); key=$(canon "${2:-}" semaphore-key); shift 2
-  while [ $# -gt 0 ]; do
-    case $1 in
-      --run-id) run_id=${2:?--run-id needs a value}; shift 2 ;;
-      *) die "unexpected argument: $1" ;;
-    esac
-  done
-  [ -n "$run_id" ] || die "sem-release requires --run-id"
-  run_id=$(canon "$run_id" run-id)
+  local root
   root=$(state_root)
-  base="$root/locks/sem-$kind/$key"
-  for dir in "$base"/slot-*.lock; do
-    [ -d "$dir" ] || continue
-    holder=$(jq -r '.run_id // ""' "$dir/lease.json" 2>/dev/null || printf '')
-    [ "$holder" = "$run_id" ] || continue
-    case $dir in
-      "$root"/locks/*) rm -rf -- "$dir"; released=$(( released + 1 )) ;;
-      *) die "refusing to remove a lock outside the state layout: $dir" ;;
-    esac
-  done
-  jq -nc --arg kind "$kind" --arg key "$key" --arg run_id "$run_id" --argjson released "$released" \
-    '{result:"released", semaphore:$kind, key:$key, run_id:$run_id, slots_released:$released}'
+  python3 "$(dirname -- "$0")/semaphore.py" release "$root" "$@"
+}
+
+cmd_sem_touch() {
+  local root
+  root=$(state_root)
+  python3 "$(dirname -- "$0")/semaphore.py" touch "$root" "$@"
 }
 
 find_run_for_worktree() {
@@ -845,6 +770,7 @@ main() {
     resource-release) cmd_resource_release "$@" ;;
     sem-acquire) cmd_sem_acquire "$@" ;;
     sem-release) cmd_sem_release "$@" ;;
+    sem-touch) cmd_sem_touch "$@" ;;
     safe) cmd_safe "$@" ;;
     remove) cmd_remove "$@" ;;
     reap) cmd_reap "$@" ;;

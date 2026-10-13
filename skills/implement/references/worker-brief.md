@@ -2,6 +2,21 @@
 
 Follow this exactly. Nobody is watching, so every rule below is repeated on purpose.
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+Pass the testing policy, explicit settings, Developer command/result evidence by SHA, and CI status
+to every local reviewer. With `reviewer_runs_tests` false it executes zero test/build/lint commands,
+including targeted reproducers, and returns missing or suspicious coverage as Developer findings.
+
 ## Non-negotiables
 
 - **Stay in the worktree** you were given, through absolute paths. Never touch the user's checkout,
@@ -61,12 +76,10 @@ alive and is never mistaken for an abandoned one:
 scripts/run_lock.sh with implement <key> -- <the repository's test command>
 ```
 
-A full suite, dependency install, or build is a **heavy task**: before the first one, take a
-machine-wide heavy-task slot with `scripts/run_lock.sh sem-acquire heavy local --run-id <run-id>`.
-At most two heavy tasks run on this machine at once, across all skills and runs, so a busy machine
-means queueing for a slot, not a failure. Release the slot with
-`scripts/run_lock.sh sem-release heavy local --run-id <run-id>` as soon as the heavy commands
-finish; never hold it across a push, a wait, or the report.
+A full suite, dependency install, or build is a **heavy task**: use the shared runner with `--heavy`.
+It owns and releases the machine-wide slot (default two); queueing is not a failure. Opt-in settings
+route light checks through the same runner and configured capacity as well. Never hold a slot across
+a push, a wait for review, or the report.
 
 New or ticket-relevant failures are remaining work, never a pass. A proven pre-existing unrelated
 failure is reported with its baseline evidence and does not expand scope. Read the diff against the base
@@ -122,7 +135,8 @@ decision.
 
 **Independent local review–fix loop — required under Orchestrate, or when the brief requests it.**
 Each round is **commit → local CI checks and independent review → wait for both → triage → fix →
-next round**. Run the local CI gate below in every round, not only after review finishes. Verification
+next round**. By default run the local CI gate below in every round. With `minimal_test_runs` true, run and record
+only affected checks during rounds, then the full applicable gate once on the final commit before push. Verification
 and review may run together on the same committed head when the runtime supports it; otherwise run
 verification first and then review. Never edit until both have finished or been stopped.
 

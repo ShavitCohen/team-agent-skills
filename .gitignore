@@ -14,3 +14,8 @@
 /skills/*/schemas/cases-v1.json
 /skills/*/schemas/poll-snapshot-v1.json
 /skills/*/schemas/shared-state-v1.json
+/skills/*/scripts/semaphore.py
+/skills/*/scripts/test_runner.py
+/skills/*/references/policy/testing.md
+/skills/*/schemas/testing-policy-v1.json
+/skills/*/tests/testing-policy.py

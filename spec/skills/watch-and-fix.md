@@ -1,5 +1,21 @@
 # Watch and Fix
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+Include the resolved testing policy, explicit environment settings, phase, and prior SHA-bound
+Developer/CI evidence in every PR Fix cycle brief, including resumed cycles. A new fix begins a new
+mandatory pre-push gate; unchanged pushed revisions are not retested in minimal mode.
+
+
 ## Package
 
 Create this portable package with the same file list as [Watch and Review](watch-and-review.md), and

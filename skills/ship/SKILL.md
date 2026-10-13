@@ -15,6 +15,22 @@ The phases run in order and each gates the next: **worktree → plan → build �
 
 `main` below means the repo's default branch. Check it with `gh repo view --json defaultBranchRef -q .defaultBranchRef.name` and substitute if it differs. Wherever this skill merges `origin/main` (confirming the base, catching up with main, and after the PR opens), use your environment's own sync mechanism instead if your instructions require it for the worktree you are in.
 
+## Testing policy
+
+Read `references/policy/testing.md` and resolve `scripts/test_runner.py config` before any
+verification. Preserve defaults when no setting is present. Carry the resolved testing policy and
+explicit environment settings into every child brief and child environment, including nested
+reviewers. The shared policy governs every test/build/lint/E2E command: opt-in execution uses
+`scripts/test_runner.py`, disabled Reviewers use SHA-bound Developer evidence plus CI, minimal
+rounds use affected checks, and the full local gate on the final committed SHA before every push
+remains mandatory. In minimal mode, do not rerun automated checks on an unchanged pushed SHA.
+Use the runner's slot instead of a second outer semaphore acquisition.
+
+Pass the policy to the persistent reviewer in every round. In minimal mode, run affected checks
+in rounds, then the full applicable gate once on the final committed SHA immediately before every
+push. The reviewer's execution restrictions apply even when the author's verification has finished.
+
+
 ## Standing rules
 
 These hold for the whole run, including after the conversation is compacted or summarized. When you resume after that, re-read `ship-plan.md` and `review-log.md` in the scratch directory before doing anything else.
@@ -64,11 +80,16 @@ Commit in logical steps, in the repo's commit style. When you think you're done,
 
 Each round goes: **commit → start verification and the review together, both in the background → wait for both → triage → fix → next round.** If the reviewer reports first, plan your fixes but don't apply them until verification finishes (or stop it). Where your runtime can't run them in the background, run verification first, then the review, and tell the user.
 
-**Verification** is the repo's full suite (e.g. `yarn verify`, whatever its docs mandate), run on the committed HEAD. Read the CI workflows and invoked scripts too: before every push, run all applicable CI checks that can run locally, respecting path filters and matrix requirements, including lint, formatting, types, build, unit, integration, and end-to-end tests where configured. Match CI's runtime, dependencies, and local services where feasible; focused tests alone are insufficient. Reuse results only for an unchanged commit, configuration, and environment. After fixes, generated changes, rebases, or base merges, commit and rerun verification before pushing.
+**Verification**, by default, is the repo's full suite (e.g. `yarn verify`, whatever its docs mandate), run on the committed HEAD. Read the CI workflows and invoked scripts too: before every push, run all applicable CI checks that can run locally, respecting path filters and matrix requirements, including lint, formatting, types, build, unit, integration, and end-to-end tests where configured. Match CI's runtime, dependencies, and local services where feasible; focused tests alone are insufficient. Reuse results only for an unchanged commit, configuration, and environment. After fixes, generated changes, rebases, or base merges, commit and rerun verification before pushing.
 
 Fix new or change-related failures before push. Record baseline evidence for unrelated pre-existing failures without expanding scope. When a check cannot run locally, try its documented local equivalent and record the exact check, reason, attempted alternative, and residual gap as **not run**; run the rest within existing authorizations. Missing credentials, unavailable services or platforms, and remote-only checks can explain a gap; convenience or suite duration cannot. Record the checked SHA, commands, actual results, and gaps in the review log and PR. Remote CI remains required where the repository requires it.
 
 For user-visible changes, also check the running app if your environment can. A preview started from a worktree session may serve the main checkout instead, so count the app as checked only if it shows something that exists only on this branch. If you can't check it, record that: it goes in the PR as not verified, never as done.
+
+With `minimal_test_runs` true, verification during each round means affected checks only, recorded
+with that round's SHA. After fixes, review, and base synchronization finish, run the full applicable
+gate once on the final committed SHA before pushing; validate its receipt with `check-gate`.
+This changes round execution, never the mandatory pre-push gate.
 
 **The reviewer** is one agent for the whole loop.
 
