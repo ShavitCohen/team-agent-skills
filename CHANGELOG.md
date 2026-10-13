@@ -31,6 +31,12 @@ All notable changes to the Team Agent Skills are recorded here. Releases are tag
   deduplicates and reports conflicts as discrepancies, and publishes a *Skills executed* block in
   the readiness comment and the cycle report. `spec/skills/pr-review.md` specifies the full
   discover/run/reconcile/report contract and its validation checks.
+- `tickets`: `SKILL.md` now states the full evidence rule (closing link, branch naming the ticket by
+  number, or title naming it; anything else dropped, never marked) and points at the permanent
+  regression tests, including that a branch naming a different ticket does not join.
+- `tickets`: `SKILL.md` now states the paged-GraphQL, field-selection rule and its rate-limit
+  rationale, and that checks are named, never derived from the rollup. The spec already said both;
+  the skill text now matches it.
 
 ## 1.0.0 — 2026-09-11
 

@@ -42,9 +42,15 @@ knows its own condition. So the skill asks two searches rather than one:
 
 A cross-reference is never evidence. One pull request routinely mentions many tickets, and the
 earlier version of this skill treated a same-repository mention as ownership — which put one merged
-pull request onto three unrelated tickets and reported finished work on tickets that had none. If no
-recorded evidence exists, the pull-request cell is empty. Empty is a true answer; a marked guess is
-not.
+pull request onto three unrelated tickets and reported finished work on tickets that had none. The
+accepted evidence is exactly three things: the closing link the tracker keeps for the ticket; a
+branch name that names this ticket by number, in the ticket's own repository; a title that names
+this ticket number. A branch whose leading number is a different ticket (`1234-…` is not ticket
+`34`) does not join. Anything else is dropped, never shown, and never marked. If no recorded
+evidence exists, the pull-request cell is empty. Empty is a true answer; a marked guess is not, so
+no cell carries an uncertainty marker and no weaker tier is ever reintroduced. The offline tests
+keep both regressions permanently: a same-repository mention must not fill the column, and a
+branch naming a different ticket must not join.
 
 ## Run it
 
@@ -80,8 +86,10 @@ scripts/fetch_tickets.sh fetch "FREE_TEXT"
 Two searches and one board probe, in one command, emitting a single JSON document: `.prs`, `.rows`
 (each with its `.section`), `.summary`, `.board`, and the filter it used.
 
-Do not fan out one command per ticket. If a field is missing, it is missing for a reason worth
-reporting, not worth a second round of queries.
+Do not fan out one command per ticket or per pull request. Each search is one paged GraphQL
+document that selects every field its rows need, so a queue of any size costs a handful of requests.
+A per-item loop is both slower and a rate-limit hazard. If a field is missing, it is missing for a
+reason worth reporting, not worth a second round of queries.
 
 ### 4. Render
 
@@ -115,8 +123,9 @@ Two more things it does not attempt, on purpose:
 
 - **The blocker's own state.** A waiting row names what is missing, not who owes it.
 - **Check state on ticket rows.** A ticket can only see the rollup, and the rollup reports FAILURE
-  when a job was cancelled or skipped. Only your own pull requests report checks, and a failing
-  check is always named.
+  when a job was cancelled or skipped — neither is work its author owes. Checks are named, never
+  rolled up: only your own pull requests report them, each failing check is classified from its own
+  named result and reported by name, and no status is ever derived from the rollup.
 
 ## Degrade explicitly
 
