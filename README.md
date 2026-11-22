@@ -131,8 +131,14 @@ offline test suite:
 
 `install.sh` runs it automatically after copying.
 
-CI runs the same check, after `./sync.sh`, on every pull request to `main` and every push to `main`,
-on Ubuntu and macOS, and reports it as the `verify` check. To reproduce a CI result locally, run
+CI (playbook §75): every push runs only the impacted checks, in groups
+(`.github/workflows/impacted-tests.yml`): `./sync.sh` then `./verify.sh` on the `skills/<package>`
+directories the change touches (all of them when `shared/`, `sync.sh`, `verify.sh` or `install.sh`
+changed), then `tests/shared-sources.sh` when shared sources or tests changed, on Ubuntu. The first
+failing group stops the run and the `verify (impacted)` job's summary names the failures and the
+likely cause. Pull requests from forks run the same impacted checks. The full check, on Ubuntu
+and macOS, runs once a day at 23:30 BKK and on demand (`.github/workflows/verify.yml`, the `verify`
+check and the badge above). To reproduce a CI result locally, run
 `./sync.sh && ./verify.sh skills/*` from the repository root: it needs only bash (3.2 or later), the
 usual POSIX tools, `jq`, `python3`, and `sha256sum` or `shasum`. It prints the network sandbox it
 used (`unshare -rn` where available, otherwise none) and ends with a per-package summary table.
