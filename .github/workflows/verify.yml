@@ -1,17 +1,17 @@
-# Runs the repository's own checks on every pull request to main and every
-# push to main: ./sync.sh writes the shared components into the packages,
-# ./verify.sh skills/* checks them (failing on any copy that drifts from its
-# master under shared/) and runs each package's tests/validate.sh, and
-# tests/shared-sources.sh checks sync, drift detection and install. No secrets
-# and read-only permissions, so pull requests from forks run safely.
+# Full check (playbook §75), once a day and on demand: ./sync.sh writes the
+# shared components into the packages, ./verify.sh skills/* checks them (failing
+# on any copy that drifts from its master under shared/) and runs each package's
+# tests/validate.sh, and tests/shared-sources.sh checks sync, drift detection and
+# install, on Ubuntu and macOS. Every push runs only the impacted checks, in
+# groups, in impacted-tests.yml. No secrets and read-only permissions. On failure
+# the run summary names the failing runner, the failures and the likely cause.
 # Reproduce locally with: ./sync.sh && ./verify.sh skills/* && tests/shared-sources.sh
 name: verify
 
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
+  # 16:30 UTC = 23:30 BKK, end of the working day.
+  schedule:
+    - cron: "30 16 * * *"
   workflow_dispatch:
 
 permissions:
@@ -19,7 +19,7 @@ permissions:
 
 concurrency:
   group: verify-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 jobs:
   verify-os:
@@ -44,14 +44,23 @@ jobs:
           fi
           rsync --version | head -1
       - name: ./sync.sh
-        run: ./sync.sh
+        run: |
+          set -o pipefail
+          ./sync.sh 2>&1 | tee -a "$RUNNER_TEMP/group.log"
       - name: ./verify.sh skills/* (fails on shared-component drift)
-        run: ./verify.sh skills/*
+        run: |
+          set -o pipefail
+          ./verify.sh skills/* 2>&1 | tee -a "$RUNNER_TEMP/group.log"
       - name: tests/shared-sources.sh
-        run: tests/shared-sources.sh
+        run: |
+          set -o pipefail
+          tests/shared-sources.sh 2>&1 | tee -a "$RUNNER_TEMP/group.log"
+      - name: Failure analysis
+        if: failure()
+        run: bash .github/scripts/ci-failure-report.sh "full check (${{ matrix.os }})" "$RUNNER_TEMP/group.log"
 
-  # One stable check name, `verify`, for branch protection: green only when
-  # every runner in the matrix passed.
+  # One stable check name, `verify`: green only when every runner in the matrix
+  # passed. Each runner's failure analysis is in its own job summary.
   verify:
     name: verify
     needs: verify-os

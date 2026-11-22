@@ -1,0 +1,174 @@
+# Playbook §75: every push runs only the checks impacted by the change, split
+# into groups (impacted packages → shared-sources tests). A group starts only
+# when the one before it passed, so the first failing group stops the run; the
+# `verify` job then reports which group failed, the failures and the likely
+# cause. The full check on Ubuntu and macOS runs once a day in verify.yml
+# (23:30 BKK) and on demand.
+#
+# Impact analysis (.github/scripts/ci-impact.sh): the diff is the push's own
+# commits on main, or everything the branch changed since its merge-base with
+# main on any other branch.
+#   - packages: ./sync.sh, then ./verify.sh on the skills/<package> directories
+#     the diff touches; every package when shared/, sync.sh, verify.sh,
+#     install.sh or this workflow changed (shared components land in many
+#     packages);
+#   - shared sources: tests/shared-sources.sh when shared/, tests/, sync.sh,
+#     install.sh or verify.sh changed.
+# Ubuntu only (macOS runs in the daily full check). Pushes to this repo's
+# branches run on push; pull requests run only from forks, so a PR branch here
+# isn't checked twice. No secrets, read-only permissions, no artifacts.
+# Reproduce locally: ./sync.sh && ./verify.sh skills/<package> && tests/shared-sources.sh
+name: impacted checks
+
+on:
+  push:
+    branches: ["**"]
+    # Not **/*.md: SKILL.md and references/*.md are what ./verify.sh checks.
+    paths-ignore:
+      - "README.md"
+      - "CHANGELOG.md"
+      - "spec/**"
+      - "LICENSE"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: impacted-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  impact:
+    name: Impact analysis
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      base: ${{ steps.diff.outputs.base }}
+      packages: ${{ steps.groups.outputs.packages }}
+      shared: ${{ steps.groups.outputs.shared }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Changed files
+        id: diff
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          CHANGED_FILES: ${{ runner.temp }}/changed-files.txt
+        run: bash .github/scripts/ci-impact.sh
+      - name: Pick the packages and groups this diff needs
+        id: groups
+        env:
+          CHANGED_FILES: ${{ runner.temp }}/changed-files.txt
+        run: |
+          set -euo pipefail
+          f="$CHANGED_FILES"
+          everything='^(shared/|sync\.sh$|verify\.sh$|install\.sh$|\.github/)'
+          if grep -Eq "$everything" "$f"; then
+            pkgs=$(find skills -mindepth 1 -maxdepth 1 -type d | sort | tr '\n' ' ')
+          else
+            pkgs=$(grep -E '^skills/[^/]+/' "$f" | cut -d/ -f1-2 | sort -u | while read -r d; do [ -d "$d" ] && printf '%s ' "$d"; done || true)
+          fi
+          pkgs="${pkgs% }"
+          echo "packages=$pkgs" >> "$GITHUB_OUTPUT"
+          if grep -Eq '^(shared/|tests/|sync\.sh$|install\.sh$|verify\.sh$|\.github/)' "$f"; then s=true; else s=false; fi
+          echo "shared=$s" >> "$GITHUB_OUTPUT"
+          echo "packages=${pkgs:-none} shared-sources=$s" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  packages:
+    name: "Group: impacted packages"
+    needs: impact
+    if: needs.impact.outputs.packages != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      report: ${{ steps.report.outputs.report }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Ensure rsync
+        run: command -v rsync >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y rsync)
+      - name: ./sync.sh && ./verify.sh <impacted packages>
+        env:
+          PACKAGES: ${{ needs.impact.outputs.packages }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086  # PACKAGES is a space-separated list of skills/<name> dirs
+          ( ./sync.sh && ./verify.sh $PACKAGES ) 2>&1 | tee "$RUNNER_TEMP/group.log"
+      - name: Failure analysis
+        id: report
+        if: failure()
+        run: bash .github/scripts/ci-failure-report.sh packages "$RUNNER_TEMP/group.log"
+
+  shared-sources:
+    name: "Group: shared-sources tests"
+    needs: [impact, packages]
+    if: ${{ !cancelled() && !failure() && needs.impact.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      report: ${{ steps.report.outputs.report }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Ensure rsync
+        run: command -v rsync >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y rsync)
+      - name: tests/shared-sources.sh
+        run: |
+          set -euo pipefail
+          ( ./sync.sh && tests/shared-sources.sh ) 2>&1 | tee "$RUNNER_TEMP/group.log"
+      - name: Failure analysis
+        id: report
+        if: failure()
+        run: bash .github/scripts/ci-failure-report.sh "shared sources" "$RUNNER_TEMP/group.log"
+
+  # Stable check name: green only when every impacted group passed.
+  verify:
+    name: verify (impacted)
+    needs: [impact, packages, shared-sources]
+    if: always() && needs.impact.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Which group failed, and why
+        env:
+          BASE: ${{ needs.impact.outputs.base }}
+          PACKAGES: ${{ needs.impact.outputs.packages }}
+          R_IMPACT: ${{ needs.impact.result }}
+          R_PACKAGES: ${{ needs.packages.result }}
+          R_SHARED: ${{ needs.shared-sources.result }}
+          REP_PACKAGES: ${{ needs.packages.outputs.report }}
+          REP_SHARED: ${{ needs.shared-sources.outputs.report }}
+        run: |
+          failed=""
+          {
+            echo "## Impacted checks: \`${GITHUB_SHA:0:12}\` vs \`${BASE:0:12}\`"
+            echo ""
+            echo "| Group | Result |"
+            echo "|---|---|"
+            echo "| impact analysis | $R_IMPACT |"
+            echo "| packages (${PACKAGES:-none}) | $R_PACKAGES |"
+            echo "| shared-sources tests | $R_SHARED |"
+            echo ""
+            echo "_skipped_ = not impacted by this diff, or a group before it failed. The full check runs daily in verify.yml."
+            echo ""
+            for g in IMPACT PACKAGES SHARED; do
+              r="R_$g"; rep="REP_$g"
+              if [ "${!r}" = "failure" ] || [ "${!r}" = "cancelled" ]; then
+                failed="$failed $g"
+                if [ -n "${!rep:-}" ]; then printf '%s\n\n' "${!rep}"; else echo "#### Group \`$g\`: ${!r} (no report; see the job log)"; fi
+              fi
+            done
+            if [ -n "$failed" ]; then
+              echo "**Stop (§75):** fix the failing group before continuing; bring the analysis above to the team."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$failed" ]; then echo "Failed group(s):$failed"; exit 1; fi
+          echo "All impacted groups passed."
